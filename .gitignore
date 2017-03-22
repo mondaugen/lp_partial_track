@@ -1,0 +1,9 @@
+*.pyc
+*.blg
+*.pdf
+*.aux
+*.log
+*.bbl
+*.out
+*.eps
+paper/plots*
