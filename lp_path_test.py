@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import cvxopt
+from itertools import product
 
 def get_L_best_paths_mats(c,n_pts_per_frame,L):
     """
@@ -30,6 +31,7 @@ def get_L_best_paths_mats(c,n_pts_per_frame,L):
     b:
         The equality constraint vector.
     """
+    n_pts_per_frame=np.array(n_pts_per_frame)
     # total number of nodes
     M=sum(n_pts_per_frame)
     # number of frames
@@ -52,25 +54,41 @@ def get_L_best_paths_mats(c,n_pts_per_frame,L):
     # incoming connections
     # matrix (first frame can't have incoming cxns)
     Ap=np.zeros((sum(n_pts_per_frame[1:]),M*M))
+    Ip=np.zeros((sum(n_pts_per_frame[1:]*n_pts_per_frame[:-1]),M*M))
     r=0
     for i in xrange(len(pts_per_frame)-1):
         fpts=pts_per_frame[i+1]
         for fpt in fpts:
             Ap[r,M*np.array(pts_per_frame[i])+fpt]=1
             r+=1
+    r=0
+    for i in xrange(len(pts_per_frame)-1):
+        fpts_cur=pts_per_frame[i+1]
+        fpts_prv=pts_per_frame[i]
+        for i_,o_ in product(fpts_cur,fpts_prv):
+            Ip[r,M*o_+i_]=1
+            r+=1
     # vector
-    bp=np.ones((np.sum(n_pts_per_frame[1:]),1))
+    bp=np.ones((Ip.shape[0],1))
     # outgoing connections
     # matrix (last frame can't have outgoing cxns)
     As=np.zeros((sum(n_pts_per_frame[:-1]),M*M))
+    Is=np.zeros((sum(n_pts_per_frame[1:]*n_pts_per_frame[:-1]),M*M))
     r=0
     for i in xrange(len(pts_per_frame)-1):
         fpts=pts_per_frame[i]
         for fpt in fpts:
             As[r,M*fpt + np.array(pts_per_frame[i+1])]=1
             r+=1
+    r=0
+    for i in xrange(len(pts_per_frame)-1):
+        fpts_cur=pts_per_frame[i]
+        fpts_nxt=pts_per_frame[i+1]
+        for i_,o_ in product(fpts_nxt,fpts_cur):
+            Is[r,M*o_+i_]=1
+            r+=1
     # vector
-    bs=np.ones((np.sum(n_pts_per_frame[:-1]),1))
+    bs=np.ones((Is.shape[0],1))
     # equal number of incoming and outgoing connections for inner frames
     # matrix
     Ab=Ap[:-n_pts_per_frame[-1],:]-As[n_pts_per_frame[0]:,:]
@@ -89,7 +107,7 @@ def get_L_best_paths_mats(c,n_pts_per_frame,L):
     bc=L*np.ones((F,1))
     
     # build inequality contraint matrix
-    G=np.vstack((As,Ap,-As,-Ap))
+    G=np.vstack((Is,Ip,-Is,-Ip))
     # and its vector
     h=np.vstack((bs,bp,0*bs,0*bp))
     # Build equality contraint matrix
@@ -108,9 +126,9 @@ c=c.flatten()
 n_pts_per_frame=[N_pts_per_frame for _ in xrange(N_frames)]
 L=3
 (G,h,A,b)=get_L_best_paths_mats(c,n_pts_per_frame,L)
-G=cvxopt.matrix(G)
+G=cvxopt.sparse(cvxopt.matrix(G))
 h=cvxopt.matrix(h)
-A=cvxopt.matrix(A)
+A=cvxopt.sparse(cvxopt.matrix(A))
 b=cvxopt.matrix(b)
 c=cvxopt.matrix(c)
 sol=cvxopt.solvers.lp(c,G,h,A=A,b=b)
