@@ -48,7 +48,8 @@ def get_L_best_paths_mats(c,n_pts_per_frame,L):
         "No solution possible." % (np.argmin(n_pts_per_frame),L))
             
     # point indices in each frame
-    pts_per_frame = [range(l) for l in n_pts_per_frame]
+    pts_per_frame = [range(l,k) for l,k in
+            zip(np.cumsum([0]+n_pts_per_frame)[:-1],np.cumsum(n_pts_per_frame))]
     # incoming connections
     # matrix (first frame can't have incoming cxns)
     Ap=np.zeros((sum(n_pts_per_frame[1:]),M*M))
@@ -87,14 +88,43 @@ def get_L_best_paths_mats(c,n_pts_per_frame,L):
     Ac[-1,:]=np.sum(Ap[-n_pts_per_frame[-1],:],axis=0)
     # vector
     bc=L*np.ones((F,1))
-    
+    # Number of outgoing connections to non-contiguous frames constrained to 0
+    Anoc=np.zeros((sum(n_pts_per_frame[:-2]),M*M))
+    r=0
+    for i in xrange(len(pts_per_frame)-2):
+        fpts=pts_per_frame[i]
+        if (i == (len(pts_per_frame)-3)):
+            rest_pts=pts_per_frame[-1]
+        else:
+            rest_pts=reduce(lambda x,y : x+y, pts_per_frame[i+2:]) # note this performs list concatenation
+        for fpt in fpts:
+            Anoc[r,M*fpt + np.array(rest_pts)]=1
+            r+=1
+    bnoc=np.zeros((Anoc.shape[0],1))
+    # Number of incoming connections to non-contiguous frames constrained to 0
+    Anic=np.zeros((sum(n_pts_per_frame[2:]),M*M))
+    r=0
+    for i in xrange(len(pts_per_frame)-2):
+        fpts=pts_per_frame[i+2]
+        if (i == 0):
+            rest_pts=pts_per_frame[0]
+        else:
+            rest_pts=reduce(lambda x,y : x+y, pts_per_frame[i+2:])
+        for fpt in fpts:
+            Anic[r,M*np.array(rest_pts) + fpt]=1
+            r+=1
+    bnic=np.zeros((Anic.shape[0],1))
+
+    # Also need 0 <= x <= 1
+    I=np.eye(M*M)
+    v1=np.ones((M*M,1))
     # build inequality contraint matrix
-    G=np.vstack((As,Ap,-As,-Ap))
+    G=np.vstack((As,Ap,-As,-Ap,I,-I))
     # and its vector
-    h=np.vstack((bs,bp,0*bs,0*bp))
+    h=np.vstack((bs,bp,0*bs,0*bp,v1,0*v1))
     # Build equality contraint matrix
-    A=np.vstack((Ab,Ac))
-    b=np.vstack((bb,bc))
+    A=np.vstack((Ab,Ac,Anoc,Anic))
+    b=np.vstack((bb,bc,bnoc,bnic))
     return (G,h,A,b)
 
 N_frames = 8
