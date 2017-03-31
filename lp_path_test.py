@@ -31,7 +31,6 @@ def get_L_best_paths_mats(c,n_pts_per_frame,L):
     b:
         The equality constraint vector.
     """
-    n_pts_per_frame=np.array(n_pts_per_frame)
     # total number of nodes
     M=sum(n_pts_per_frame)
     # number of frames
@@ -50,7 +49,9 @@ def get_L_best_paths_mats(c,n_pts_per_frame,L):
         "No solution possible." % (np.argmin(n_pts_per_frame),L))
             
     # point indices in each frame
-    pts_per_frame = [range(l) for l in n_pts_per_frame]
+    pts_per_frame = [range(l,k) for l,k in
+            zip(np.cumsum([0]+n_pts_per_frame)[:-1],np.cumsum(n_pts_per_frame))]
+    n_pts_per_frame=np.array(n_pts_per_frame)
     # incoming connections
     # matrix (first frame can't have incoming cxns)
     Ap=np.zeros((sum(n_pts_per_frame[1:]),M*M))
