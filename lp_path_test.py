@@ -107,10 +107,13 @@ def get_L_best_paths_mats(c,n_pts_per_frame,L):
     # vector
     bc=L*np.ones((F,1))
     
+    # Also need 0 <= x <= 1
+    I=np.eye(M*M)
+    v1=np.ones((M*M,1))
     # build inequality contraint matrix
-    G=np.vstack((Is,Ip,-Is,-Ip))
+    G=np.vstack((Is,Ip,-Is,-Ip,I,-I))
     # and its vector
-    h=np.vstack((bs,bp,0*bs,0*bp))
+    h=np.vstack((bs,bp,0*bs,0*bp,v1,0*v1))
     # Build equality contraint matrix
     A=np.vstack((Ab,Ac))
     b=np.vstack((bb,bc))
