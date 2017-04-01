@@ -89,7 +89,8 @@ def get_L_best_paths_mats(c,n_pts_per_frame,L):
         fpts=pts_per_frame[i+1]
         for fpt in fpts:
 #            Ap_[r,M*np.array(pts_per_frame[i])+fpt]=1
-            Ap_[r,M*np.array(range(M))+fpt]=1
+            _ins=np.array(list(set(range(M))-set([fpt])))
+            Ap_[r,M*_ins+fpt]=1
             r+=1
     # vector
     bp=np.ones((np.sum(n_pts_per_frame[1:]),1))
@@ -101,20 +102,25 @@ def get_L_best_paths_mats(c,n_pts_per_frame,L):
         fpts=pts_per_frame[i]
         for fpt in fpts:
 #            As_[r,M*fpt + np.array(pts_per_frame[i+1])]=1
-            As_[r,M*fpt + np.array(range(M))]=1
+            _ins=np.array(list(set(range(M))-set([fpt])))
+            As_[r,M*fpt + _ins]=1
             r+=1
     # vector
     bs=np.ones((np.sum(n_pts_per_frame[:-1]),1))
     # equal number of incoming and outgoing connections for inner frames
     # matrix
     Ab=Ap[:-n_pts_per_frame[-1],:]-As[n_pts_per_frame[0]:,:]
+    Ab_=Ap_[:-n_pts_per_frame[-1],:]-As_[n_pts_per_frame[0]:,:]
     # vector
     bb=np.zeros((sum(n_pts_per_frame[1:-1]),1))
     # constrain number of non-zero values in each frame to be L (for L paths)
     # matrix
     Ac=np.zeros((F-1,M*M))
+    Ac_=np.zeros((F-1,M*M))
     # count by aribtrarily couning the number of outgoing connections, except
     # for the last frame
+    for f,fpts in enumerate(pts_per_frame[:-1]):
+        Ac_[f,:]=np.sum(As_[fpts,:],axis=0) # sum along rows
     for f,fpts in enumerate(pts_per_frame[:-1]):
         Ac[f,:]=np.sum(As[fpts,:],axis=0) # sum along rows
     # in last frame there are only incoming connections so use these to count
@@ -156,25 +162,27 @@ def get_L_best_paths_mats(c,n_pts_per_frame,L):
     # and its vector
     h=np.vstack((bs,bp,0*bs,0*bp,v1,0*v1))
     # Build equality contraint matrix
-    A=np.vstack((Ab,Ac,Anoc))#,Anic))
-    b=np.vstack((bb,bc,bnoc))#,bnic))
+    A=np.vstack((Ab_,Ac))#,Anoc))#,Anic))
+    b=np.vstack((bb,bc))#,bnoc))#,bnic))
     return (G,h,A,b,M)
 
-N_frames = 20 
-N_pts_per_frame = 10
+N_frames = 15 
+N_pts_per_frame = 5
 x_pts=np.add.outer(np.arange(N_frames),np.zeros(N_pts_per_frame)).flatten()
 y_pts=np.random.uniform(-1,1,N_frames*N_pts_per_frame)
 c=np.power(np.subtract.outer(x_pts,x_pts),2.)+np.power(np.subtract.outer(y_pts,y_pts),2.)
 c=c.flatten()
 n_pts_per_frame=[N_pts_per_frame for _ in xrange(N_frames)]
-L=2
+L=4
 (G,h,A,b,M)=get_L_best_paths_mats(c,n_pts_per_frame,L)
 G_=cvxopt.sparse(cvxopt.matrix(G))
 h_=cvxopt.matrix(h)
 A_=cvxopt.sparse(cvxopt.matrix(A))
 b_=cvxopt.matrix(b)
 c_=cvxopt.matrix(c+1)
-sol=cvxopt.solvers.lp(c_,G_,h_,A=A_,b=b_,solver='glpk')
+opt_solver=None#'glpk'
+sol=cvxopt.solvers.lp(c_,G_,h_,A=A_,b=b_,solver=opt_solver)
+plt.clf()
 plt.plot(x_pts,y_pts,'bo')
 for k,x in enumerate(sol['x']):
     if x > 0.5:
