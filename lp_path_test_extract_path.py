@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import cvxopt
+from scipy import linalg
 
 def print_0_1_array(x):
     """
@@ -158,30 +159,33 @@ def get_L_best_paths_mats(c,n_pts_per_frame,L):
             r+=1
     bnic=np.zeros((Anic.shape[0],1))
 
-    #P=np.vstack((np.hstack((np.zeros((M*M,M*M)),-1*np.eye(M*M))),
-    #             np.hstack((-1*np.eye(M*M),np.zeros((M*M,M*M))))))
-    mu=0
-    P=np.vstack((np.hstack((mu*np.eye(M*M),-1*np.eye(M*M))),
-                 np.hstack((-1*np.eye(M*M),mu*np.eye(M*M)))))
+    P=np.vstack((np.hstack((np.zeros((M*M,M*M)),-1*np.eye(M*M))),
+                 np.hstack((-1*np.eye(M*M),np.zeros((M*M,M*M))))))
+    #mu=1
+    #P=np.vstack((np.hstack((mu*np.eye(M*M),-1*np.eye(M*M))),
+    #             np.hstack((-1*np.eye(M*M),mu*np.eye(M*M)))))
     q=np.vstack((c.reshape((M*M,1)),np.zeros((M*M,1))))
     # Also need 0 <= x <= 1
     I=np.eye(M*M)
     v1=np.ones((M*M,1))
     # build inequality contraint matrix
     G=np.vstack((As,Ap,-As,-Ap,I,-I))
-    G=np.hstack((G,G))
+    G=linalg.block_diag(G,G)
     # and its vector
     h=np.vstack((bs,bp,0*bs,0*bp,v1,0*v1))
+    h=np.vstack((h,h))
     # Build equality contraint matrix
     A=np.vstack((Ab_,Ac))
-    A=np.hstack((A,np.vstack((Ab_,(1./L)*Ac))))
+    A=linalg.block_diag(A,np.vstack((Ab_,Ac)))
     # Extract path starting on node 1
     _z=np.zeros((1,2*M*M))
 #    _z[0,M*M+np.array(pts_per_frame[1])]=1
-    _z[0,M*M+1:(M*M+M)]=1
+    _z[0,M*M:(M*M+M)]=1
     A=np.vstack((A,_z))
     b=np.vstack((bb,bc))
-    b=np.vstack((bb,bc,np.array([[1]])))
+    b=np.vstack((b,b))
+    b[-M*M:]=1
+    b=np.vstack((b,np.array([[1]])))
 #    return (P,q,G,h,A,b,M)
     return (P,q,G,h,A,b,M)
 
