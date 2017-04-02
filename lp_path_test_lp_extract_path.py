@@ -167,6 +167,7 @@ def get_L_best_paths_mats(c,n_pts_per_frame,L):
     G=np.vstack((G,np.hstack((I,-I,-I))))
     G=np.vstack((G,np.hstack((-I,I,-I))))
     G=np.vstack((G,np.hstack((0*I,0*I,-I))))
+    G=np.hstack((G,np.zeros((G.shape[0],1))))
     # and its vector
     h=np.vstack((bs,bp,0*bs,0*bp,v1,0*v1))
     h=np.vstack((h,h,np.zeros((3*M*M,1))))
@@ -174,16 +175,30 @@ def get_L_best_paths_mats(c,n_pts_per_frame,L):
     A=np.vstack((Ab_,Ac))
     A=linalg.block_diag(A,np.vstack((Ab_,Ac)))
     A=np.hstack((A,np.zeros((A.shape[0],M*M))))
-    _z=np.zeros((2,3*M*M))
+    A=np.hstack((A,np.zeros((A.shape[0],1))))
+    A[-Ac.shape[0],-1]=-1
+    _z=np.zeros((3,3*M*M+1))
     pth_idx=0
+    # get whether or not path starts on node 0
+    _z[0,1:M]=1
+    _z[0,-1]=-1
+    # if so, y must have a connection from node 0
+    _z[1,M*M:(M*M+M)]=1
+    _z[1,-1]=-1
+#    # and y can contain a maximum of F-1 ones
+    _z[2,M*M+M*n_pts_per_frame[0]:2*M*M]=1
+    _z[2,-1]=-(F-1)
+#    _z[1,M*M:2*M*M]=1
+#    _z[1,-1]=-(F-1)
 #    _z[0,M*pth_idx:(pth_idx*M+M)]=1
-    _z[0,:M]=-1
-    _z[0,M*M:(M*M+M)]=1
-    _z[1,M*M+M:M*M+M*n_pts_per_frame[0]]=1
+    #_z[0,:M]=-1
+    #_z[0,M*M:(M*M+M)]=1
+    #_z[1,M*M+M:M*M+M*n_pts_per_frame[0]]=1
     A=np.vstack((A,_z))
     b=np.vstack((bb,bc))
-    b=np.vstack((b,bb,np.ones(bc.shape),np.array([[0],[0]])))
-    c_=np.zeros((3*M*M,1))
+    b=np.vstack((b,bb,np.ones(bc.shape),np.array([[0],[0],[0]])))
+#    b=np.vstack((b,bb,np.zeros(bc.shape),np.array([[0],[0]])))
+    c_=np.zeros((3*M*M+1,1))
     c_[:M*M,0]=c
     c_[-M*M:,0]=1
     return (c_,G,h,A,b,M)
@@ -197,7 +212,7 @@ y_pts[0]=10.
 c=np.power(np.subtract.outer(x_pts,x_pts),2.)+np.power(np.subtract.outer(y_pts,y_pts),2.)
 c=c.flatten()
 n_pts_per_frame=[N_pts_per_frame for _ in xrange(N_frames)]
-L=2
+L=4
 (c,G,h,A,b,M)=get_L_best_paths_mats(c,n_pts_per_frame,L)
 G_=cvxopt.sparse(cvxopt.matrix(G))
 h_=cvxopt.matrix(h)
