@@ -126,36 +126,8 @@ def get_L_best_paths_mats(c,n_pts_per_frame,L):
         Ac_[f,:]=np.sum(As_[fpts,:],axis=0) # sum along rows
     for f,fpts in enumerate(pts_per_frame[:-1]):
         Ac[f,:]=np.sum(As[fpts,:],axis=0) # sum along rows
-    # in last frame there are only incoming connections so use these to count
-    #Ac[-1,:]=np.sum(Ap[-n_pts_per_frame[-1],:],axis=0)
     # vector
     bc=L*np.ones((F-1,1))
-    # Number of outgoing connections to non-contiguous frames constrained to 0
-    Anoc=np.zeros((sum(n_pts_per_frame[:-2]),M*M))
-    r=0
-    for i in xrange(len(pts_per_frame)-2):
-        fpts=pts_per_frame[i]
-        if (i == (len(pts_per_frame)-3)):
-            rest_pts=pts_per_frame[-1]
-        else:
-            rest_pts=reduce(lambda x,y : x+y, pts_per_frame[i+2:]) # note this performs list concatenation
-        for fpt in fpts:
-            Anoc[r,M*fpt + np.array(rest_pts)]=1
-            r+=1
-    bnoc=np.zeros((Anoc.shape[0],1))
-    # Number of incoming connections to non-contiguous frames constrained to 0
-    Anic=np.zeros((sum(n_pts_per_frame[2:]),M*M))
-    r=0
-    for i in xrange(len(pts_per_frame)-2):
-        fpts=pts_per_frame[i+2]
-        if (i == 0):
-            rest_pts=pts_per_frame[0]
-        else:
-            rest_pts=reduce(lambda x,y : x+y, pts_per_frame[i+2:])
-        for fpt in fpts:
-            Anic[r,M*np.array(rest_pts) + fpt]=1
-            r+=1
-    bnic=np.zeros((Anic.shape[0],1))
 
     # Also need 0 <= x <= 1
     I=np.eye(M*M)
@@ -167,10 +139,17 @@ def get_L_best_paths_mats(c,n_pts_per_frame,L):
     G=np.vstack((G,np.hstack((I,-I,-I))))
     G=np.vstack((G,np.hstack((-I,I,-I))))
     G=np.vstack((G,np.hstack((0*I,0*I,-I))))
+    # Constrain error to be less than path_lengths * (num_paths -
+    # num_extracted_paths). Should be feasible.
+    G=np.vstack((G,np.zeros((1,3*M*M))))
+    G[-1,2*M*M:3*M*M]=1.
+    G[-1,-1]=-(F-1)
     G=np.hstack((G,np.zeros((G.shape[0],1))))
     # and its vector
     h=np.vstack((bs,bp,0*bs,0*bp,v1,0*v1))
     h=np.vstack((h,h,np.zeros((3*M*M,1))))
+    # error constraint
+    h=np.vstack((h,np.array([[(F-1)*(L-1)]])))
     # Build equality contraint matrix
     A=np.vstack((Ab_,Ac))
     A=linalg.block_diag(A,np.vstack((Ab_,Ac)))
@@ -185,9 +164,9 @@ def get_L_best_paths_mats(c,n_pts_per_frame,L):
     # if so, y must have a connection from node 0
     _z[1,M*M:(M*M+M)]=1
     _z[1,-1]=-1
-#    # and y can contain a maximum of F-1 ones
+#    # and y can contain a maximum of F-2 ones
     _z[2,M*M+M*n_pts_per_frame[0]:2*M*M]=1
-    _z[2,-1]=-(F-1)
+    _z[2,-1]=-(F-2)
 #    _z[1,M*M:2*M*M]=1
 #    _z[1,-1]=-(F-1)
 #    _z[0,M*pth_idx:(pth_idx*M+M)]=1
@@ -196,23 +175,27 @@ def get_L_best_paths_mats(c,n_pts_per_frame,L):
     #_z[1,M*M+M:M*M+M*n_pts_per_frame[0]]=1
     A=np.vstack((A,_z))
     b=np.vstack((bb,bc))
-    b=np.vstack((b,bb,np.ones(bc.shape),np.array([[0],[0],[0]])))
+    b=np.vstack((b,bb,np.zeros(bc.shape)))
+#    b=np.vstack((b,np.array([[0]])))
+    b=np.vstack((b,np.array([[0],[0],[0]])))
 #    b=np.vstack((b,bb,np.zeros(bc.shape),np.array([[0],[0]])))
     c_=np.zeros((3*M*M+1,1))
     c_[:M*M,0]=c
-    c_[-M*M:,0]=1
+    c_[-(M*M+1):-1,0]=1
+#    c_[-1]=-1*sum(c)
+#    c_[M*M:2*M*M]=-1
     return (c_,G,h,A,b,M)
 
 N_frames = 5
-N_pts_per_frame = 5
+N_pts_per_frame = 6
 x_pts=np.add.outer(np.arange(N_frames),np.zeros(N_pts_per_frame)).flatten()
 y_pts=np.random.uniform(-1,1,N_frames*N_pts_per_frame)
 # Make first point really far out
-y_pts[0]=10.
+#y_pts[0]=10.
 c=np.power(np.subtract.outer(x_pts,x_pts),2.)+np.power(np.subtract.outer(y_pts,y_pts),2.)
 c=c.flatten()
 n_pts_per_frame=[N_pts_per_frame for _ in xrange(N_frames)]
-L=4
+L=5
 (c,G,h,A,b,M)=get_L_best_paths_mats(c,n_pts_per_frame,L)
 G_=cvxopt.sparse(cvxopt.matrix(G))
 h_=cvxopt.matrix(h)

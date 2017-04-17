@@ -162,11 +162,11 @@ def get_L_best_paths_mats(c,n_pts_per_frame,L):
     # and its vector
     h=np.vstack((bs,bp,0*bs,0*bp,v1,0*v1))
     # Build equality contraint matrix
-    A=np.vstack((Ab_,Ac))#,Anoc))#,Anic))
-    b=np.vstack((bb,bc))#,bnoc))#,bnic))
+    A=np.vstack((Ab_,Ac))
+    b=np.vstack((bb,bc))
     return (G,h,A,b,M)
 
-N_frames = 15 
+N_frames = 10 
 N_pts_per_frame = 5
 x_pts=np.add.outer(np.arange(N_frames),np.zeros(N_pts_per_frame)).flatten()
 y_pts=np.random.uniform(-1,1,N_frames*N_pts_per_frame)

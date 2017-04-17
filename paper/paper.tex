@@ -14,6 +14,7 @@
 \usepackage{amsfonts}
 \usepackage{amssymb}
 \usepackage[labelsep=period]{caption}
+%\usepackage{mathabx}
 
 % Example definitions.
 % --------------------
@@ -41,6 +42,10 @@
 \captionsetup{format=no-cap-title}
 \newcommand{\MyInput}[1]{\immediate\write18{cat #1}}
 \def\figwidthscale{0.5}
+
+% symbol definitions
+\newcommand{\cLP}{\boldsymbol{c}_{\rho}}
+\newcommand{\BS}[1]{\boldsymbol{#1}}
 
 % Title.
 % --------------------
@@ -111,12 +116,27 @@ concludes with an example of partial tracking on a synthetic signal.
 
 Typically the DTSTFT is computed for a block of contiguous samples, called a
 \textit{frame} and these frames are computed every $H$ samples, $H$ being the
-\textit{hop-size}. We will denote the $M$ sets of parameters at local maxima in
-frame $h$ as $\theta_0^{h}, \dotsc, \theta_{M-1}^{h}$ and the $N$ in frame $h+1$
-as $\theta_0^{h+1}, \dotsc, \theta_{N-1}^{h+1}$ where $h$ and $h+1$ refer to
+\textit{hop-size}. We will denote the $N_{k}$ sets of parameters at local maxima in
+frame $k$ as $\theta_0^{k}, \dotsc, \theta_{N_{k}-1}^{k}$ and the $N_{k+1}$ in frame $k+1$
+as $\theta_0^{k+1}, \dotsc, \theta_{N_{k+1}-1}^{k+1}$ where $k$ and $k+1$ refer to
 adjacent frames. We are interested in paths that extend across $K$ frames where
 each path touches only one parameter set and each parameter set is either
 exclusive to a single path or is not on a path.
+
+\subsection{Note on notation}
+
+In this paper, indexing starts at 0. If we have a vector $\BS{x}$ then
+$\BS{x}_{i}$ is the $i$th row or column of that vector depending on the
+orientation. The same notation is used for cartesian products, e.g., if $\alpha$
+and $\beta$ are sets and $A =
+\alpha \times \beta$ then for the pair $a \in A$ $a_{0}$ is the first item in
+the pair and $a_{1}$ the second.
+
+The number of frames is denoted $K$, the number of nodes in the $k$th frame $N_k$ and
+the total number of nodes $M = \sum_{k=0}^{K-1} N_{k}$. $\theta_{i}^{j}$ is the
+$i$th node of the $j$th frame, $\theta^{j}$ the set of all the nodes in the
+$j$th frame and $\theta_{m}$ the $m$th node out of all $M$ nodes ($0 \leq m <
+M$).
 
 %In Section~\ref{sec:mqfmfromphase} we discussed how to determine reasonable
 %values for the coefficients of a cubic phase polynomial by using the frequency,
@@ -133,21 +153,20 @@ it can be sensitive to spurious peaks and is optimal only in the sense that
 the set of paths computed contains the best path possible --- the quality of the
 other paths may be compromised under this criterion.
 
-In \cite[p.~748]{mcaulay1986speech} the peak matching algorithm is described in
+In \cite[q.~748]{mcaulay1986speech} the peak matching algorithm is described in
 a number of steps; we summarize them here in a way comparable with the linear
 programming formulation to be presented shortly. In that paper, the parameters
-of adjacent frames $h$ and $h+1$ are the instantaneous amplitude, phase, and
-frequency and are indexed by frequency as $\omega_0^{h}, \dotsc,
-\omega_{M-1}^{h}$ and $\omega_0^{h+1}, \dotsc, \omega_{N-1}^{h+1}$ but we will
-allow for arbitrary parameter sets.  Define a distance function $\mathcal{D}
+of each data point are the instantaneous amplitude, phase, and frequency but we
+will allow for arbitrary parameter sets $\theta$.  Define a distance function
+$\mathcal{D}
 \left( \theta_{i},\theta_{j} \right)$ that computes the
 similarity between $2$ sets of parameters. We will now consider a method that
 finds $L$ tuples of parameters that are closest.
 
 We compute the cost tensor
 $
-    \boldsymbol{C} = \theta^{h}
-    \otimes_{\mathcal{D}} \mathellipsis \otimes_{\mathcal{D}} \theta^{h+K-1}
+    \BS{C} = \theta^{k}
+    \otimes_{\mathcal{D}} \mathellipsis \otimes_{\mathcal{D}} \theta^{k+K-1}
 $.
 For each $l \in \left[0 \dotsc L-1 \right]$, find the indices
 $i_{0},\dotsc,i_{K-1}$ 
@@ -155,17 +174,17 @@ corresponding to the shortest
 distance, then remove the $i_{0},\dotsc,i_{K-1}$th rows (lines of table entries)
 in the their respective dimensions from consideration
 and continue until $L$ tuples have been determined or the distances exceed some
-threshold $\Delta$. This is summarized in Algorithms~\ref{alg:mq_peak_match}
+threshold $\Delta_{\text{MQ}}$. This is summarized in Algorithms~\ref{alg:mq_peak_match}
 
 \begin{algorithm}
-    \KwIn{the cost matrix $\boldsymbol{C}$}
-    \KwOut{$L$ tuples of indices $\Gamma$, or fewer if $\Delta$ exceeded}
+    \KwIn{the cost matrix $\BS{C}$}
+    \KwOut{$L$ tuples of indices $\Gamma$, or fewer if $\Delta_{\text{MQ}}$ exceeded}
     $\Gamma \leftarrow \varnothing$\;
     \For{$l \leftarrow 0$ to $L-1$}{
         $\D \Gamma_{l}=\argmin_{[0,\dotsc,M_{0}-1] \times
         \mathellipsis \times [0,\dotsc,M_{K-1}-1] \setminus \Gamma}
-            \boldsymbol{C}$\;
-            \If{$ C_{\Gamma_{l}} > \Delta$}{
+            \BS{C}$\;
+            \If{$ C_{\Gamma_{l}} > \Delta_{\text{MQ}}$}{
             \KwRet{$\Gamma$}
         }
         $\Gamma \leftarrow \Gamma \cup C_{\Gamma_{l}}$\;
@@ -187,211 +206,355 @@ $K$. Nevertheless, the method is simple to implement, computationally negligible
 when $K$ is small, and works well with audio signals \cite{mcaulay1986speech}
 \cite{smith1987parshl}.
 
-\section{An optimal method \label{sec:lppathsearch}}
+\section{$L$ best paths through a lattice via linear programming (LP)}
 
-There is a way to find a set of paths over multiple frames ($K > 2$) having the
-lowest total cost if
-we restrict the search to exactly $L$ paths. Instead of indexing parameters by
-their frame number $h$, we make $h$ part of the parameter set so that it can be
-used by the distance function $\mathcal{D}$. Assume that over $K$ frames there
-are $M$ total parameter sets. In this context we will consider them as nodes in
-a graph. We define the vector $\boldsymbol{c} \in \mathbb{R}^{M^2}$
-where the entry $\boldsymbol{c}_{i + Mj} = \mathcal{D} \left( \theta_{i}, \theta_{j}
-\right)$. If we have a set of connections $\Gamma_{i,j}$ we can calculate the
-total cost of these connections by defining the vector
-\[
-    \boldsymbol{x}_{i + Mj} = \begin{cases}
-        1 & \text{there is a connection between }i\text{ and }j\\
+In this section we show how to find L paths through a lattice of $K$ frames such
+that the sets of nodes on each path are disjoint. The $k$th frame of the lattice
+contains $N_{k}$ nodes for a total of $M = \sum_{k=0}^{K-1}N_{k}$ nodes.
+
+Whereas the limiting cost underwhich a path would be considered was the sum of
+the costs of all connections in the McAulay-Quatieri method, for the LP method
+we define the cost $\Delta_{\text{LP}}$ as the limiting cost underwhich the
+connection between two nodes will be considered.
+
+The solution vector $\BS{x}$ to the linear program shall indicate the presence of a
+connection between a pair of nodes by having an entry equal to $1$ and otherwise
+have entries equal to $0$. To enumerate the set of possible connection-pairs we
+define
+\begin{equation}
+    \rho = \left\{ (i,j) : \mathcal{D}(\theta_{i},\theta_{j}) \leq
+    \Delta_{\text{LP}} , 0 \leq i < M, 0 \leq j < M, i \neq j \right\}
+\end{equation}
+The cost vector of the objective function is then 
+\begin{equation}
+    \cLP = \left\{ D(\theta_{i},\theta_{j}) \forall (i,j) \in
+    \rho \right\}
+\end{equation}
+and the length of $\cLP$ is $\# \rho = \# \cLP = P$, in other words, $P$
+pairs of nodes. For convenience we define a bijective mapping ${\mathcal{B} :
+\rho \rightarrow [0, \mathellipsis, M-1]}$ giving the index in $\BS{x}$ of the
+pair $p \in \rho$. For the implementation considered in this paper,
+$\mathcal{D}(\theta_{i},\theta_{j}) = \infty$ for all $i,j$ not in adjacent
+frames and so $P$ will be no larger than $(K-1)N^{2}$ (assuming the same
+number of nodes $N$ in each frame).
+
+The total cost of the paths in the solution is then calculated through the
+inner product $\cLP^{T}\BS{x}$. To obtain $\BS{x}^{\ast}$ that represents $L$
+disjoint paths we must place constraints on the structure of the solution. Some
+of the constraints presented in the following are redundant but the redundancies
+are kept for clarity; later we will show which constraints can be removed
+without changing the optimal solution $\BS{x}^{\ast}$.
+
+All nodes in $\BS{x}^{\ast}$ will have at most one incoming connection or
+otherwise no connections, a constraint that can be enforced through the
+following linear inequality. Define $\BS{A}^{\text{I}} \in
+\mathbb{R}^{R_{\text{I}} \times P}$ with $R_{\text{I}} = \sum_{k=1}^{K-1}
+N_{k}$, the number of nodes in all the frames excluding the first. We sum all
+the connections into the node $r_{\text{I}} + N_{0}$ represented by the
+respective entry in $\BS{x}$ through an inner product with the $r_{\text{I}}$th
+row in $\BS{A}^{\text{I}}$ and require that this sum be between $0$ and $1$,
+i.e.,
+\begin{equation}
+    \BS{A}^{\text{I}}_{r_{\text{I}},\mathcal{B}(p)} = \begin{cases}
+        1 & \text{if } p_{1} = r_{\text{I}}+N_{0} \\
         0 & \text{otherwise}
-    \end{cases}
-\]
-and then forming the inner product
-\[
-    c_{\text{total}}=\left\langle \boldsymbol{c},\boldsymbol{x} \right\rangle
-\]
-Note that a node cannot be connected to itself. The question is how to find
-$\boldsymbol{x}^{\ast}$ so that $c_{\text{total}}$ is minimized. How do we
-constrain $\boldsymbol{x}$ to give us a solution to the partial tracking
-problem? Let us consider an example.
-
-In Figure~\ref{plot:simple_graph} we have an example of a simple graph or
-lattice. Such a graph represents a plausible partial tracking situation:
-vertically aligned nodes are parameter sets estimated from the same analysis
-frame and we would like to connect these parameter sets between frames. The
-numbers are indices of nodes in the graph and the edges (possible connections) between
-them are indicated by lines. Imagine that we would like to
-find the two shortest paths. We will now examine the resulting paths from two
-algorithms using different criteria for shortness.
-
-In Figure~\ref{plot:simple_graph_greedy_paths} we find the paths using an
-algorithm similar to Algorithms~\ref{alg:mq_peak_match} but search instead over a
-tensor of distances $C \in \mathbb{R}^{3 \times 4 \times 2}$ whose entry
-$C_{i,j,h}$ represents the cost of travelling on the path connecting the $i$th
-node in layer 0, the $j$th node in layer 1 and the $h$th node in layer 2. This
-cost is the sum of the Euclidean distances giving the lengths of the
-connections. This is the greedy method of searching for the best paths whose
-optimality criterion is to find the set of best paths containing the absolute
-best path. We see in Figure~\ref{plot:simple_graph_greedy_paths} that the
-absolute shortest path, $1 \rightarrow 4 \rightarrow 8$, is discovered, followed
-by the second shortest path not using the nodes of the first path, $2
-\rightarrow 5 \rightarrow 7$.
-
-\begin{figure}[!t]
-    \centering
-    \centerline{\includegraphics[width=\figwidthscale\textwidth]{plots/small_graph_ex.eps}}
-    \CaptionWithTitle{%
-        \input{plots/small_graph_ex.txt}%
-    }{\label{plot:simple_graph}}
-\end{figure}
-
-\begin{figure}[!t]
-    \centering
-    \centerline{\includegraphics[width=\figwidthscale\textwidth]{plots/small_graph_ex_greedy_paths.eps}}
-    \CaptionWithTitle{%
-        \input{plots/small_graph_ex_greedy_paths.txt}%
-    }{\label{plot:simple_graph_greedy_paths}}
-\end{figure}
-
-\subsection{$L$ shortest paths via linear programming}
-
-To find a set of paths minimizing the total cost, we instead search for total
-solutions $\boldsymbol{x}$ that describe all paths in the graph. Assume for now
-that we can guarantee that the entries of $\boldsymbol{x}$ will be either 0 or
-1. To find a set of constraints for our search, we consider the structure of a
-valid solution $\boldsymbol{x}^{\ast}$. To maintain that paths not overlap, a
-valid solution's nodes are only allowed to have one edge entering ---
-coming from a node in a previous frame --- and one edge leaving
---- going to a node in a successive frame. To translate this into a
-constraint, consider the node $i$ and its possible $R_{i}$ successive connecting
-nodes $j_{0} \dotsc j_{R_{i}-1}$. Define the vector\footnote{The superscript s
-stands for ``successive''.}
-\[
-    a^{\text{s},i}_{i + Mj_{r}} = \begin{cases}
-        1 & \forall j_{r} \in \left[ j_{0} \dotsc j_{R_{i}-1} \right] \\
+    \end{cases}, 0 \leq r_{\text{I}} < R_{\text{I}}, p \in \rho
+\end{equation}
+and
+\begin{equation}
+    \BS{0} \leq \BS{A}^{\text{I}}\BS{x} \leq \BS{1}
+\end{equation}
+Similarly, to constrain the number of outgoing connections into each node, we
+define $R_{\text{O}} = \sum_{k=0}^{K-2} N_{k}$ and
+$\BS{A}^{\text{O}} \in \mathbb{R}^{R_{\text{O}} \times P}$ with
+\begin{equation}
+    \BS{A}^{\text{O}}_{r_{\text{O}},\mathcal{B}(p)} = \begin{cases}
+        1 & \text{if } p_{0} = r_{\text{O}} \\
         0 & \text{otherwise}
-    \end{cases}
-\]
-As all the entries of $\boldsymbol{x}$ are either 0 or 1, we have
-\[
-    0 \leq \left\langle \boldsymbol{a}^{\text{s},i}, \boldsymbol{x} \right\rangle \leq 1
-\]
-so we can make this a constraint to ensure that a node has at most one path
-leaving. Similarly, if we consider the node $j$ and its possible $R_{j}$ previous connecting
-nodes $i_{0} \dotsc i_{R_{j}-1}$, the vector\footnote{The superscript p
-stands for ``previous''.}
-\[
-    a^{\text{p},j}_{i_{r} + Mj} \begin{cases}
-        1 & \forall i_{r} \in \left[ i_{0} \dotsc i_{R_{j}-1} \right] \\
-        0 & \text{otherwise}
-    \end{cases}
-\]
-constrains that node $j$ have only one path entering through the constraint
-\[
-    0 \leq \left\langle \boldsymbol{a}^{\text{p},j} , \boldsymbol{x} \right\rangle \leq 1
-\]
-A node on a path will also have an edge entering and an edge leaving. To
-translate this into a constraint, we define a vector that counts the number of
-edges entering a node and subtracts then the number of edges leaving a node. The
-result should always be 0 for an equal number of edges entering and exiting a
-node. If $r$ is the index of the node considered, the vector is simply
-\footnote{The superscript b stands for ``balanced''.}
-\[
-    \boldsymbol{a}^{\text{b},r} = \boldsymbol{a}^{\text{p},r} -
-    \boldsymbol{a}^{\text{s},r}
-\]
-and the constraint
-\[
-    \left\langle \boldsymbol{a}^{\text{b},r}, \boldsymbol{x} \right\rangle = 0
-\]
-Finally we want to constrain that there be only $L$ paths. We do this by
-noticing that if this is true, there will be $L$ edges between frames $h$ and
-$h+1$. We constrain the number of paths going from edges
-$\Gamma_{h}$ in frame $h$ to $\Gamma_{h+1}$ by forming the vector
-\footnote{The superscript c stands for ``connections''.}
-\[
-    \boldsymbol{a}^{\text{c},h} = \sum_{j \in \Gamma_{h}}
-    \boldsymbol{a}^{\text{s},j}
-\]
-and asserting the constraint
-\[
-    \left\langle \boldsymbol{a}^{\text{c},h} , \boldsymbol{x} \right\rangle = L
-\]
-The length of $\boldsymbol{x}$ is $M^{2}$ so the total size of all the
-constraints is not insignificant, but most entries in the constraint vectors will
-be 0 and therefore the resulting constraint matrices very sparse, so sparse
-linear algebra routines can be used in computations. Furthermore, the
-$\boldsymbol{a}^{b}$ and $\boldsymbol{a}^{c}$ constraints are derived from
-$\boldsymbol{a}^{p}$ and $\boldsymbol{a}^{s}$, so only the latter need to be
-stored.
+    \end{cases}, 0 \leq r_{\text{O}} < R_{\text{O}}, p \in \rho
+\end{equation}
+and
+\begin{equation}
+    \BS{0} \leq \BS{A}^{\text{O}}\BS{x} \leq \BS{1}
+\end{equation}
 
-\begin{figure}[!t]
-    \centering
-    \centerline{\includegraphics[width=\figwidthscale\textwidth]{plots/small_graph_ex_lp_paths.eps}}
-    \CaptionWithTitle{%
-        \input{plots/small_graph_ex_lp_paths.txt}%
-    }{\label{plot:simple_graph_lp_paths}}
-\end{figure}
+To ensure no breaks in the paths it is required that the number of incoming
+connections into a given node equal the number of outgoing connections for the
+$R_{\text{B}} = \sum_{k=1}^{K-2} N_{k}$ nodes potentially having both incoming
+and outgoing connections.
+\begin{equation}
+    \BS{A}^{\text{B}}_{r_{\text{B}}} = \BS{A}^{\text{B}}_{r_{\text{B}}} -
+    \BS{A}^{\text{B}}_{r_{\text{B}}+N_{0}} \text{ for rows } 0 \leq r_{\text{B}}
+    < R_{\text{B}}
+\end{equation}
+and
+\begin{equation}
+    \label{eq:cxnbalcon}
+    \BS{A}^{\text{B}}\BS{x} = \BS{0}
+\end{equation}
 
-The complete \textit{linear program (LP)} solving the $L$ shortest paths problem is then
+Finally we ensure that there are $L$ paths by counting the number of connections
+in each frame and constraining this sum to be $L$. We choose arbitrarily to
+count the number of outgoing connections by summing rows of $\BS{A}^{\text{O}}$
+into rows of $\BS{A}^{\text{C}} \in \mathbb{R}^{(K-1) \times P}$
+\begin{equation}
+    \BS{A}^{\text{C}}_{r_{\text{C}}} = \sum_{k=a}^{b} \BS{A}^{\text{O}}_{k}
+\end{equation}
+with $a = \sum_{j=0}^{r_{\text{C}}} N_{j}$ and $b = \sum_{j=0}^{r_{\text{C}}+1}
+N_{j}$ and
+\begin{equation}
+    \label{eq:cxnlcon}
+    \BS{A}^{\text{C}}\BS{x} = L\BS{1}
+\end{equation}
+
+As stated above, some of these constraints are redundant and can be removed.
+Indeed, we have $\BS{0} \leq \BS{x} \leq \BS{1}$, therefore we will always have
+$\BS{A}^{\text{I}}\BS{x} \geq 0$ and $\BS{A}^{\text{I}}\BS{x} \geq 0$.
+Furthermore, all but the last row of (\ref{eq:cxnlcon}) can be seen as
+constructed from linear combinations of rows of (\ref{eq:cxnbalcon}) and the last
+row of (\ref{eq:cxnlcon}) so we only require $\BS{A}^{\text{C}}_{K-2}\BS{x} = L$.
+Finally we always have $\BS{x} \leq \BS{1}$ because of the constraint that there
+be a maximum of $1$ incoming and outgoing connection from each node.
+
+The complete LP to find the $L$ best disjoint paths through a lattice described
+by node connections $\rho$ is
 \[
-    \min_{\boldsymbol{x}} \left\langle \boldsymbol{c}, \boldsymbol{x} \right\rangle
+    \min_{\BS{x}} \cLP^{T} \BS{x} 
 \]
 subject to
 \[
-    \boldsymbol{0} \leq
+    \BS{G}\BS{x} =
     \begin{bmatrix}
-        \boldsymbol{A}_{\text{s}} \\
-        \boldsymbol{A}_{\text{p}}
-    \end{bmatrix} \boldsymbol{x}
-    \leq \boldsymbol{1}
-\]
-\[
+        \BS{A}^{\text{I}} \\
+        \BS{A}^{\text{O}} \\
+        -\BS{I}
+    \end{bmatrix} \BS{x} \leq
     \begin{bmatrix}
-        \boldsymbol{A}_{\text{b}} \\
-        \boldsymbol{A}_{\text{c}}
-    \end{bmatrix}
-    \boldsymbol{x}
-    =
-    \begin{bmatrix}
-        \boldsymbol{0} \\
-        L\boldsymbol{1}
+        \BS{1} \\
+        \BS{1} \\
+        \BS{0}
     \end{bmatrix}
 \]
-\[
-    \boldsymbol{0} \leq \boldsymbol{x} \leq \boldsymbol{1}
-\]
-where $\boldsymbol{A}_{\text{s}}$ is the matrix with
-$\boldsymbol{a}^{\text{s},m}$ as its rows for $m \in [0 \dotsc M-1]$ and
-$\boldsymbol{A}_{\text{p}}$ is the matrix with $\boldsymbol{a}^{\text{p},m}$ as
-its rows, etc.
+\begin{equation}
+    \BS{A}\BS{x} =
+    \begin{bmatrix}
+        \BS{A}^{\text{B}} \\
+        \BS{A}^{\text{C}}_{K-2}
+    \end{bmatrix} \BS{x} = 
+    \begin{bmatrix}
+        \BS{0} \\
+        L
+    \end{bmatrix}
+\end{equation}
 
-The solution of the two best paths using the LP formulation
-is shown in Figure~\ref{plot:simple_graph_lp_paths} and a comparison of the
-total costs is shown in Table~\ref{tab:greedy_lp_cost_compare}
+% TODO: move to complexity
 
-\begin{table}[!b]
-    \caption{\label{tab:greedy_lp_cost_compare} Comparison of total costs in
-    Figure~\ref{plot:simple_graph_lp_paths}}
-    \begin{center}
-        \begin{tabular}{c c}
-            Greedy & LP \\
-            \hline
-            \input{plots/small_graph_ex_greedy_cost.txt} &
-            \input{plots/small_graph_ex_lp_cost.txt} \\
-        \end{tabular}
-    \end{center}
-\end{table}
-
-The LP formulation is inspired by a multiple object tracking algorithm for video
-\cite{jiang2007linear}. A proof that the solution $\boldsymbol{x}^{\ast}$ will
-have entries equal to either $0$ or $1$ can be found in
-\cite[p.~167]{parker1988discrete}. The theoretical computational complexity of
-the linear program is polynomial in the number of variables, see
-\cite{karmarkar1984new} for a proof and the demonstration of a fast algorithm
-for finding its solution. In practice, to extract paths from the solution, we do
-not test equality with $0$ or $1$ but rather test if the solution vector's
-values are greater than some threshold. 
-
+%\section{An optimal method \label{sec:lppathsearch}}
+%
+%There is a way to find a set of paths over multiple frames ($K > 2$) having the
+%lowest total cost if
+%we restrict the search to exactly $L$ paths. Instead of indexing parameters by
+%their frame number $k$, we make $k$ part of the parameter set so that it can be
+%used by the distance function $\mathcal{D}$. Assume that over $K$ frames there
+%are $M$ total parameter sets. In this context we will consider them as nodes in
+%a graph. We define the vector $\BS{c} \in \mathbb{R}^{M^2}$
+%where the entry $\BS{c}_{i + Mj} = \mathcal{D} \left( \theta_{i}, \theta_{j}
+%\right)$. If we have a set of connections $\Gamma_{i,j}$ we can calculate the
+%total cost of these connections by defining the vector
+%\[
+%    \BS{x}_{i + Mj} = \begin{cases}
+%        1 & \text{there is a connection between }i\text{ and }j\\
+%        0 & \text{otherwise}
+%    \end{cases}
+%\]
+%and then forming the inner product
+%\[
+%    c_{\text{total}}=\left\langle \BS{c},\BS{x} \right\rangle
+%\]
+%Note that a node cannot be connected to itself. The question is how to find
+%$\BS{x}^{\ast}$ so that $c_{\text{total}}$ is minimized. How do we
+%constrain $\BS{x}$ to give us a solution to the partial tracking
+%problem? Let us consider an example.
+%
+%In Figure~\ref{plot:simple_graph} we have an example of a simple graph or
+%lattice. Such a graph represents a plausible partial tracking situation:
+%vertically aligned nodes are parameter sets estimated from the same analysis
+%frame and we would like to connect these parameter sets between frames. The
+%numbers are indices of nodes in the graph and the edges (possible connections) between
+%them are indicated by lines. Imagine that we would like to
+%find the two shortest paths. We will now examine the resulting paths from two
+%algorithms using different criteria for shortness.
+%
+%In Figure~\ref{plot:simple_graph_greedy_paths} we find the paths using an
+%algorithm similar to Algorithms~\ref{alg:mq_peak_match} but search instead over a
+%tensor of distances $C \in \mathbb{R}^{3 \times 4 \times 2}$ whose entry
+%$C_{i,j,k}$ represents the cost of travelling on the path connecting the $i$th
+%node in layer 0, the $j$th node in layer 1 and the $k$th node in layer 2. This
+%cost is the sum of the Euclidean distances giving the lengths of the
+%connections. This is the greedy method of searching for the best paths whose
+%optimality criterion is to find the set of best paths containing the absolute
+%best path. We see in Figure~\ref{plot:simple_graph_greedy_paths} that the
+%absolute shortest path, $1 \rightarrow 4 \rightarrow 8$, is discovered, followed
+%by the second shortest path not using the nodes of the first path, $2
+%\rightarrow 5 \rightarrow 7$.
+%
+%\begin{figure}[!t]
+%    \centering
+%    \centerline{\includegraphics[width=\figwidthscale\textwidth]{plots/small_graph_ex.eps}}
+%    \CaptionWithTitle{%
+%        \input{plots/small_graph_ex.txt}%
+%    }{\label{plot:simple_graph}}
+%\end{figure}
+%
+%\begin{figure}[!t]
+%    \centering
+%    \centerline{\includegraphics[width=\figwidthscale\textwidth]{plots/small_graph_ex_greedy_paths.eps}}
+%    \CaptionWithTitle{%
+%        \input{plots/small_graph_ex_greedy_paths.txt}%
+%    }{\label{plot:simple_graph_greedy_paths}}
+%\end{figure}
+%
+%\subsection{$L$ shortest paths via linear programming}
+%
+%To find a set of paths minimizing the total cost, we instead search for total
+%solutions $\BS{x}$ that describe all paths in the graph. Assume for now
+%that we can guarantee that the entries of $\BS{x}$ will be either 0 or
+%1. In order to simplify the indexing in this section, we denote the number of
+%nodes in each frame as $N_{k}$ ($M = \sum_{l=0}^{K-1} N_{k}$). To find a set of constraints for our search, we consider the structure of a
+%valid solution $\BS{x}^{\ast}$. To maintain that paths not overlap, a
+%valid solution's interior nodes (those not in the first or last frame) are only allowed to have one edge entering ---
+%coming from a node in a previous frame --- and one edge leaving
+%--- going to a node in a successive frame. To translate this into a
+%constraint, consider the node $i$ and its possible $R_{i}$ successive connecting
+%nodes $j_{0} \dotsc j_{R_{i}-1}$. Define the vector\footnote{The superscript s
+%stands for ``successive''.}
+%\[
+%    a^{\text{s},i}_{i + Mj_{r}} = \begin{cases}
+%        1 & \forall j_{r} \in \left[ j_{0} \dotsc j_{R_{i}-1} \right] \\
+%        0 & \text{otherwise}
+%    \end{cases}
+%\]
+%As all the entries of $\BS{x}$ are either 0 or 1, we have
+%\[
+%    0 \leq \left\langle \BS{a}^{\text{s},i}, \BS{x} \right\rangle \leq 1
+%\]
+%so we can make this a constraint to ensure that a node has at most one path
+%leaving. Similarly, if we consider the node $j$ and its possible $R_{j}$ previous connecting
+%nodes $i_{0} \dotsc i_{R_{j}-1}$, the vector\footnote{The superscript q
+%stands for ``previous''.}
+%\[
+%    a^{\text{q},j}_{i_{r} + Mj} \begin{cases}
+%        1 & \forall i_{r} \in \left[ i_{0} \dotsc i_{R_{j}-1} \right] \\
+%        0 & \text{otherwise}
+%    \end{cases}
+%\]
+%constrains that node $j$ have only one path entering through the constraint
+%\[
+%    0 \leq \left\langle \BS{a}^{\text{q},j} , \BS{x} \right\rangle \leq 1
+%\]
+%A node on a path will also have an edge entering and an edge leaving. To
+%translate this into a constraint, we define a vector that counts the number of
+%edges entering a node and subtracts then the number of edges leaving a node. The
+%result should always be 0 for an equal number of edges entering and exiting a
+%node. If $r$ is the index of the node considered, the vector is simply
+%\footnote{The superscript b stands for ``balanced''.}
+%\[
+%    \BS{a}^{\text{b},r} = \BS{a}^{\text{q},r} -
+%    \BS{a}^{\text{s},r}
+%\]
+%and the constraint
+%\[
+%    \left\langle \BS{a}^{\text{b},r}, \BS{x} \right\rangle = 0
+%\]
+%Finally we want to constrain that there be only $L$ paths. We do this by
+%noticing that if this is true, there will be $L$ edges between frames $k$ and
+%$k+1$. We constrain the number of paths going from edges
+%$\Gamma_{k}$ in frame $k$ to $\Gamma_{k+1}$ by forming the vector
+%\footnote{The superscript c stands for ``connections''.}
+%\[
+%    \BS{a}^{\text{c},k} = \sum_{j \in \Gamma_{k}}
+%    \BS{a}^{\text{s},j}
+%\]
+%and asserting the constraint
+%\[
+%    \left\langle \BS{a}^{\text{c},k} , \BS{x} \right\rangle = L
+%\]
+%The length of $\BS{x}$ is $M^{2}$ so the total size of all the
+%constraints is not insignificant, but most entries in the constraint vectors will
+%be 0 and therefore the resulting constraint matrices very sparse, so sparse
+%linear algebra routines can be used in computations. Furthermore, the
+%$\BS{a}^{\text{b}}$ and $\BS{a}^{\text{c}}$ constraints are derived from
+%$\BS{a}^{\text{q}}$ and $\BS{a}^{\text{s}}$, so only the latter need to be
+%stored.
+%
+%\begin{figure}[!t]
+%    \centering
+%    \centerline{\includegraphics[width=\figwidthscale\textwidth]{plots/small_graph_ex_lp_paths.eps}}
+%    \CaptionWithTitle{%
+%        \input{plots/small_graph_ex_lp_paths.txt}%
+%    }{\label{plot:simple_graph_lp_paths}}
+%\end{figure}
+%
+%The complete \textit{linear program (LP)} solving the $L$ shortest paths problem is then
+%\[
+%    \min_{\BS{x}} \left\langle \BS{c}, \BS{x} \right\rangle
+%\]
+%subject to
+%\[
+%    \BS{0} \leq
+%    \begin{bmatrix}
+%        \BS{A}_{\text{s}} \\
+%        \BS{A}_{\text{q}}
+%    \end{bmatrix} \BS{x}
+%    \leq \BS{1}
+%\]
+%\[
+%    \begin{bmatrix}
+%        \BS{A}_{\text{b}} \\
+%        \BS{A}_{\text{c}}
+%    \end{bmatrix}
+%    \BS{x}
+%    =
+%    \begin{bmatrix}
+%        \BS{0} \\
+%        L\BS{1}
+%    \end{bmatrix}
+%\]
+%\[
+%    \BS{0} \leq \BS{x} \leq \BS{1}
+%\]
+%where $\BS{A}_{\text{s}}$ is the matrix with
+%$\BS{a}^{\text{s},m}$ as its rows for $m \in [0 \dotsc M-1]$ and
+%$\BS{A}_{\text{q}}$ is the matrix with $\BS{a}^{\text{q},m}$ as
+%its rows, etc.
+%
+%The solution of the two best paths using the LP formulation
+%is shown in Figure~\ref{plot:simple_graph_lp_paths} and a comparison of the
+%total costs is shown in Table~\ref{tab:greedy_lp_cost_compare}
+%
+%\begin{table}[!b]
+%    \caption{\label{tab:greedy_lp_cost_compare} Comparison of total costs in
+%    Figure~\ref{plot:simple_graph_lp_paths}}
+%    \begin{center}
+%        \begin{tabular}{c c}
+%            Greedy & LP \\
+%            \hline
+%            \input{plots/small_graph_ex_greedy_cost.txt} &
+%            \input{plots/small_graph_ex_lp_cost.txt} \\
+%        \end{tabular}
+%    \end{center}
+%\end{table}
+%
+%The LP formulation is inspired by a multiple object tracking algorithm for video
+%\cite{jiang2007linear}. A proof that the solution $\BS{x}^{\ast}$ will
+%have entries equal to either $0$ or $1$ can be found in
+%\cite[q.~167]{parker1988discrete}. The theoretical computational complexity of
+%the linear program is polynomial in the number of variables, see
+%\cite{karmarkar1984new} for a proof and the demonstration of a fast algorithm
+%for finding its solution. In practice, to extract paths from the solution, we do
+%not test equality with $0$ or $1$ but rather test if the solution vector's
+%values are greater than some threshold. 
+%
 \subsection{Complexity}
 
 The LP formulation of the $L$-best paths problem gives results equivalent to the
@@ -402,8 +565,8 @@ complexity of $O(M^{7}B^{2})$ where $M$ is the number of nodes (parameter sets)
 and $B$ is the number of bits used to represent each number in the input. The
 complexity of the algorithm by Wolf in \cite{wolf1989finding} is equivalent to
 the Viterbi algorithm for finding the single best path through a trellis whose
-$h$th frame has $\binom{N_{h}}{L}\binom{N_{h+1}}{L}L!$ connections where $N_{h}$
-and $N_{h+1}$ are the number of nodes in two consecutive frames of the original
+$k$th frame has $\binom{N_{k}}{L}\binom{N_{k+1}}{L}L!$ connections where $N_{k}$
+and $N_{k+1}$ are the number of nodes in two consecutive frames of the original
 lattice. Therefore, assuming a constant number $N$ of nodes in each frame, its
 complexity is $O((\binom{N}{L}^{2}L!)^{2}T)$. If there are few nodes in each
 frame and a small number of paths are searched, Wolf's formulation is superior
@@ -424,21 +587,21 @@ frame).
 \section{Partial paths on an example signal\label{sec:mq_lp_compare_chirp}}
 
 We compare the greedy and LP based methods for peak matching on a synthetic
-signal. The signal is composed of $K=6$ chirps of constant amplitude, the $k$th
+signal. The signal is composed of $Q=6$ chirps of constant amplitude, the $q$th
 chirp $s$ at sample $n$ described by the equation
 \[
-    s_{k}(n) = \exp(j(\phi_{k} + \omega_{k}n +
-    \frac{1}{2} \psi_{k} n^{2}))
+    s_{q}(n) = \exp(j(\phi_{q} + \omega_{q}n +
+    \frac{1}{2} \psi_{q} n^{2}))
 \]
 The parameters for the 6 chirps are presented in
 Table~\ref{tab:ptrackexamplechirpparams}.
 
 \begin{table}[!b]
-    \caption{Parameters of $k$th chirp. $f_{0}$ and $f_{1}$ are the initial and
+    \caption{Parameters of $q$th chirp. $\nu_{0}$ and $\nu_{1}$ are the initial and
     final frequency of the chirp in Hz. \label{tab:ptrackexamplechirpparams}}
     \begin{center}
         \begin{tabular}{l c c c c c}
-            $k$ & $\phi_{k}$ & $\omega_{k}$ & $\psi_{k}$ & $f_{0}$ & $f_{1}$ \\
+            $q$ & $\phi_{q}$ & $\omega_{q}$ & $\psi_{q}$ & $\nu_{0}$ & $\nu_{1}$ \\
             \hline
             \input{plots/mq_lp_compare_chirp_params.txt}
         \end{tabular}
@@ -496,8 +659,8 @@ wide bands spaced 75 Hz apart. A local maximum is only accepted if its amplitude
 is greater than -20 dB. The bin corresponding to each local maximum and its two
 surrounding bins are used by the Distribution Derivative Method
 (DDM) to estimate the
-local chirp parameters, the $i$th set of parameters in frame $h$ denoted
-$\theta_{i}^{h} = \left\{ \phi_{i}^{h} , \omega_{i}^{h} , \psi_{i}^{h}
+local chirp parameters, the $i$th set of parameters in frame $k$ denoted
+$\theta_{i}^{k} = \left\{ \phi_{i}^{k} , \omega_{i}^{k} , \psi_{i}^{k}
 \right\}$ (the atoms used by the DDM are generated from 4-term continuous
 Nuttall windows). The results of the analyses of both signals are lumped together and
 it is on this lumped data that we perform partial tracking.
@@ -505,12 +668,12 @@ it is on this lumped data that we perform partial tracking.
 We search for partial tracks using both the greedy and LP strategies. Both
 algorithms use the distance metric $\mathcal{D}_{\text{pr.}}$ between two parameters sets:
 \[
-    \mathcal{D}_{\text{pr.}} \left( \theta_{i}^{h},
-    \theta_{j}^{h+1} \right) = \left( \omega_{i}^{h} +
-    \psi_{i}^{h} H - \omega_{j}^{h+1} \right)
+    \mathcal{D}_{\text{pr.}} \left( \theta_{i}^{k},
+    \theta_{j}^{k+1} \right) = \left( \omega_{i}^{k} +
+    \psi_{i}^{k} H - \omega_{j}^{k+1} \right)
 \]
-which is the error in predicting $j$th frequency in frame $h+1$ from the $i$th
-parameters in frame $h$. For the greedy method, the search for partial paths is
+which is the error in predicting $j$th frequency in frame $k+1$ from the $i$th
+parameters in frame $k$. For the greedy method, the search for partial paths is
 restricted to one frame ahead like in \cite{mcaulay1986speech}, otherwise the
 computation becomes intractable. For the LP
 method, to keep the computation time reasonable, we search over 6 frames for 6
