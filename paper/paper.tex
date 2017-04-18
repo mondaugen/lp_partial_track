@@ -336,6 +336,7 @@ subject to
     \end{bmatrix}
 \]
 \begin{equation}
+    \label{eq:lpprogfull}
     \BS{A}\BS{x} =
     \begin{bmatrix}
         \BS{A}^{\text{B}} \\
@@ -348,9 +349,22 @@ subject to
 \end{equation}
 where $\BS{I}$ is the identity matrix.
 
-\section{Complexity}
+\section{Memory complexity}
 
-% TODO: Memory complexity
+To simplify notation, in this section we assume there are $N$ nodes in each
+frame of the lattice.
+
+Although the matrices involved in (\ref{eq:lpprogfull}) are large, only a small
+fraction of their values are non-zero. As stated above, the number of variables in $\BS{x}$ is
+$P = (K-1)N^{2}$. Even though matrices $\BS{A}^{\text{I}}, \BS{A}^{\text{O}} \in
+\mathbb{R}^{N(K-1) \times P}$, each contains only $P$ non-zero
+entries.  $\BS{A}^{\text{B}} \in \mathbb{R}^{N(K-1) \times P}$ but contains only
+$2N^{2}(K-2)$ non-zero entries while $\BS{A}^{\text{C}}_{K-2} \in \mathbb{R}^{P}$
+contains merely $N$. The $\BS{x} \geq \BS{0}$ constraint requires a matrix
+with $P$ non-zero entries. The total memory complexity is therefore $4P +
+2N^{2}(K-2)$ floating-point numbers.
+
+\section{Complexity}
 
 Here we will compare the complexity of the LP formulation of the best $L$ paths
 search to the greedy McAulay-Quatieri method as well a combinatorial algorithm
