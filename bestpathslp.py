@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 import lpmisc
 import string
 from numpy import linalg
+import sigmod as sm
+import ddm
 
 def get_lp_mats(i_frames,i_vals,dfunc,dmax,L):
 
@@ -116,4 +118,101 @@ def get_lp_mats(i_frames,i_vals,dfunc,dmax,L):
     return (c,G,h,A,b,M,i_pairs,i_costs)
 
 def get_mq_sol(i_frames,i_vals,dfunc,dmax,L):
-    pass
+    """
+    i_frames:
+        indices in each frame. Must be contiguous and start at 0, e.g.,
+        [[0,1],[2,3,4],...]
+    i_vals:
+        values for each index such that the value of an index can be looked up
+        as i_vals[idx]
+    dfunc:
+        function that accepts two entries from i_vals and gives distance between
+        them
+    dmax:
+        the maximum tolerated distance
+    L:
+        the number of paths to find
+
+    returns (x,D)
+
+    x:
+        a list of lists of indices representing L best paths sorted from
+        shortest to longest
+    D:
+        the cost tensor for all the paths
+    """
+    dim_sizes=[len(d) for d in i_frames]
+    for dim_idcs,fr_idcs in zip(it.product(*map(xrange,dim_sizes)),it.product(*i_frames)):
+        vals_pairs=[(i_vals[i],
+            i_vals[j]) for i,j in zip(fr_idcs[:-1],fr_idcs[1:])]
+        D.itemset(dim_idcs,sum([dfunc(iv,jv) for iv,jv in vals_pairs]))
+    x=[]
+    all_dim_idcs=list(it.product(*map(xrange,dim_sizes)))
+    for j in xrange(L):
+        min_cost=float('inf')
+        min_idcs=None
+        for dim_idcs in all_dim_idcs:
+            if (D.item(dim_idcs) < min_cost):
+                min_cost = D.item(dim_idcs)
+                min_idcs = dim_idcs
+        if min_cost > dmax:
+            break
+        x.append(min_idcs)
+        all_dim_idcs.remove(min_idcs)
+    return x
+
+def estimate_ddm_decomp(x,
+                        Fs=16000,
+                        M=1024,
+                        H=256,
+                        wname='c1-nuttall-4',
+                        b_ddm_hz=150.,
+                        o_ddm_hz=75.,
+                        th_ddm=10.**(-20./20)):
+    """
+    Decompose signal into frequency and amplitude modulated components.
+
+    x:
+        The signal to analyse.
+    Fs:
+        The sample rate.
+    M:
+        The analysis window size.
+    H:
+        The hop size.
+    wname:
+        The name of the analysis window to use 
+        (see ddm.w_dw_sum_cos)
+    b_ddm_hz:
+        Size of band over which local maximum is searched (in Hz)
+    o_ddm_hz:
+        Spacing between the start points of these bands (in Hz)
+    th_ddm:
+        Threshold of value seen as valid.
+    """
+    ## Find maxima and estimate parameters
+    # compute windows
+    w,dw=ddm.w_dw_sum_cos(M,'c1-nuttall-4')#'hanning')
+    # Convert to bins
+    b_ddm=np.round(b_ddm_hz/Fs*M)
+    o_ddm=np.round(o_ddm_hz/Fs*M)
+    # Highest bin to consider
+    M_ddm=M/2
+    # number of bins after last maximum to skip
+    i_ddm=3
+    a=[]
+#    a0=[]
+    # length of signal
+    N=len(x)
+    # current hop
+    h=0
+    while ((h+M) <= N):
+        #a0.append(
+        a0=sm.ddm_p2_1_3_b(x[h:(h+M)],w,dw,
+            b_ddm,o_ddm,th_ddm,M_ddm,i_ddm,norm=True)
+        #)
+        h+=H
+        #a.append(a0[-1])
+        a.append(a0)
+    return a
+
