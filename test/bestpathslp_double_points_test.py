@@ -1,3 +1,5 @@
+# Try doubling up some points in the middle to see if this makes enough
+# room for all the paths
 import matplotlib.pyplot as plt
 import numpy as np
 import bestpathslp as bplp
@@ -52,8 +54,8 @@ for a_ in a_flt:
     for a__ in a_:
         f0_=np.imag(a__[1])/(2.*np.pi)*Fs
         f1_=(np.imag(a__[1])+2.*np.imag(a__[2])*H)/(2.*np.pi)*Fs
-        t0_=h/float(Fs)
-        t1_=(h+H)/float(Fs)
+        t0_=h/H#float(Fs)
+        t1_=(h+H)/H#float(Fs)
         ax1.plot([t0_,t1_],[f0_,f1_],c='k')
     h+=H
 
@@ -67,6 +69,15 @@ i_frames=[]
 # times at which corresponding points happen
 i_times=[]
 h=0
+
+# frames in which to double the points
+i_double=range(20,31)
+
+for i in i_double:
+    atlen=len(a_flt[i])
+    for j in xrange(atlen):
+        a_flt[i].append(a_flt[i][j].copy())
+
 for a_ in a_flt:
     i_frames.append(i_frames_[:len(a_)])
     i_times += [h for _ in xrange(len(a_))]
@@ -81,7 +92,7 @@ def dfunc(a,b):
 (c,G,h,A,b,M,i_pairs,i_costs)=bplp.get_lp_mats(i_frames,
                                                i_vals,
                                                dfunc,
-                                               0.15,
+                                               0.1,
                                                L)
 print 'max cost %f' % (max(i_costs),)
 print 'min cost %f' % (min(i_costs),)
@@ -100,8 +111,8 @@ for x_pt in zip(sol['x'],i_pairs):
     if x > 0.5:
         f0_=np.imag(i_vals[i][1])/(2.*np.pi)*Fs
         f1_=np.imag(i_vals[j][1])/(2.*np.pi)*Fs
-        t0_=i_times[i]/float(Fs)
-        t1_=i_times[j]/float(Fs)
+        t0_=i_times[i]/H#float(Fs)
+        t1_=i_times[j]/H#float(Fs)
         ax1.plot([t0_,t1_],[f0_,f1_],c='r')
 
 if (show_plot):
