@@ -49,7 +49,7 @@
 
 % Title.
 % --------------------
-\title{PARTIAL TRACKING VIA LINEAR PROGRAMMING}
+\title{A linear programming approach to the tracking of partials}
 
 %% Single addresses (uncomment and modify for single-address case).
 %% --------------------
@@ -65,18 +65,16 @@
 % Two addresses
 % --------------------
 \twoauthors
-  {Nicholas Esterer\sthanks{}}
-    {McGill University \\
-     Music Technology Area \\
-     Schulich School of Music, McGill University \\
+  {Nicholas Esterer}%\sthanks{}}
+    {Schulich School of Music, McGill University, \\
+     Music Technology Area \& CIRMMT \\
      555 Sherbrooke Street West \\
      Montreal, Quebec \\
      Canada H3A 1E3 \\
      nicholas.esterer@mail.mcgill.ca}
-  {Philippe Depalle\sthanks{}}
-    {McGill University \\
-     Music Technology Area \\
-     Schulich School of Music, McGill University \\
+ {Philippe Depalle}%\sthanks{}}
+    {Schulich School of Music, McGill University, \\
+     Music Technology Area \& CIRMMT \\
      555 Sherbrooke Street West \\
      Montreal, Quebec \\
      Canada H3A 1E3 \\
@@ -90,7 +88,14 @@
 \begin{sloppy}
 
 \begin{abstract}
-    TODO
+    A new approach to the tracking of sinusoidal chirps using linear programming
+    is proposed. It is demonstrated that the classical algorithm of
+    \cite{mcaulay1986speech} is greedy and exhibits exponential complexity for
+    long searches. A linear programming (LP) formulation to find the best $L$ paths
+    in a lattice is described and its complexity is analysed. Finally it is
+    demonstrated that the new LP formulation outperforms the classical algorithm
+    in the tracking of sinusoidal chirps in high levels of noise --- both in
+    computational complexity and robustness.
 \end{abstract}
 
 \begin{keywords}
@@ -114,11 +119,12 @@ partial. With this path interpretation, we were able to design a technique that 
 optimal set of paths under a constraint on the number of paths. The paper 
 concludes with an example of partial tracking on a synthetic signal.
 
-Typically the DTSTFT is computed for a block of contiguous samples, called a
-\textit{frame} and these frames are computed every $H$ samples, $H$ being the
-\textit{hop-size}. We will denote the $N_{k}$ sets of parameters at local maxima in
-frame $k$ as $\theta_0^{k}, \dotsc, \theta_{N_{k}-1}^{k}$ and the $N_{k+1}$ in frame $k+1$
-as $\theta_0^{k+1}, \dotsc, \theta_{N_{k+1}-1}^{k+1}$ where $k$ and $k+1$ refer to
+Typically the discrete time short-time Fourier transform (DTSTFT) is computed
+for a block of contiguous samples, called a \textit{frame} and these frames are
+computed every $H$ samples, $H$ being the \textit{hop-size}. We will denote the
+$N_{k}$ sets of parameters at local maxima in frame $k$ as $\theta_0^{k},
+\dotsc, \theta_{N_{k}-1}^{k}$ and the $N_{k+1}$ in frame $k+1$ as
+$\theta_0^{k+1}, \dotsc, \theta_{N_{k+1}-1}^{k+1}$ where $k$ and $k+1$ refer to
 adjacent frames. We are interested in paths that extend across $K$ frames where
 each path touches only one parameter set and each parameter set is either
 exclusive to a single path or is not on a path.
@@ -127,7 +133,7 @@ exclusive to a single path or is not on a path.
 
 In this paper, indexing starts at 0. If we have a vector $\BS{x}$ then
 $\BS{x}_{i}$ is the $i$th row or column of that vector depending on the
-orientation. The same notation is used for cartesian products, e.g., if $\alpha$
+orientation. The same notation is used for Cartesian products, e.g., if $\alpha$
 and $\beta$ are sets and $A =
 \alpha \times \beta$ then for the pair $a \in A$ $a_{0}$ is the first item in
 the pair and $a_{1}$ the second.
@@ -212,9 +218,9 @@ In this section we show how to find L paths through a lattice of $K$ frames such
 that the sets of nodes on each path are disjoint. The $k$th frame of the lattice
 contains $N_{k}$ nodes for a total of $M = \sum_{k=0}^{K-1}N_{k}$ nodes.
 
-Whereas the limiting cost underwhich a path would be considered was the sum of
+Whereas the limiting cost under which a path would be considered was the sum of
 the costs of all connections in the McAulay-Quatieri method, for the LP method
-we define the cost $\Delta_{\text{LP}}$ as the limiting cost underwhich the
+we define the cost $\Delta_{\text{LP}}$ as the limiting cost under which the
 connection between two nodes will be considered.
 
 The solution vector $\BS{x}$ to the linear program shall indicate the presence of a
@@ -523,30 +529,10 @@ To maintain connected paths, the search on the next frames uses the end nodes of
 the last search as starting points. For both methods, the search is restricted
 to nodes between frequencies 250 to 2250 Hz.
 
-Figure~\ref{plot:mq_lp_compare_chirp_20},~\ref{plot:mq_lp_compare_chirp_15},%
-~and~\ref{plot:mq_lp_compare_chirp_10}
-show discovered partial trajectories for signals with a SNR of 20, 15, and 10
-dB,
-respectively. It is seen that while the greedy method begins to perform poorly
-at a SNR of 15dB, the LP method still gives plausible partial trajectories for
-SNRs of 10 and 15 dB. At lower SNRs, the LP formulation gives
-some paths that do not correspond to an underlying partial. These could be filtered
-out by examining the cost of these paths and comparing them to the costs of the
-others. Those that deviate from a mean cost more than a certain amount should be
-rejected. This is the strategy used in Chapter~\ref{chap:decaysep} and
-illustrated in Figure~\ref{plot:acgtra3xylofs4costlengththresh}. In any case,
-the lower SNRs are relatively challenging for any partial tracking technique.
-
-But why did the LP discover a path not present in the underlying signal? This is
-due to the cost function, which finds a path with minimum prediction error in
-using the frequency and frequency slope coefficients of one node to predict
-another node's frequency coefficient. When there are many nodes in the original
-analysis it is not surprising that some unexpected path exists.  An attribute of
-these erroneous paths is that they are not smooth. To deter the algorithm from
-finding such paths, regularization could be used like in
-Section~\ref{sec:mqfmfromphase} that minimizes the integral of the squared
-estimate of the path's second derivative. More on regularization in optimization
-can be found in \cite[ch.~6.3]{boyd2004convex}.
+Figure~\ref{plot:mq_lp_compare_chirp_10}
+shows discovered partial trajectories for signals with a SNR of 10
+dB. It is seen that while the greedy method performs poorly
+at a SNR of 10dB, the LP method still gives plausible partial trajectories.
 
 \section{Conclusion}
 
@@ -557,27 +543,23 @@ of the $L$ paths, using a linear programming approach. It was shown on synthetic
 signals that the new approach finds plausible paths in lattices with a
 large number of spurious nodes.
 
-There are problems with the proposed approach. As discussed in
-\ref{sec:lppathsearch}, ``jagged'' paths should be removed using regularization.
+There are problems with the proposed approach. Perhaps ``jagged'' paths should be removed using regularization.
 There are also situations where it is undesirable to have paths extend
 throughout the entire lattice. Acoustic signals produced by striking media, such
 as strings or bars, exhibit a spectrum where the upper partials decay more
-quickly than the lower ones (e.g., see Figure~\ref{plot:acgtra3specgram}) --- it
+quickly than the lower ones --- it
 would be desirable in these situations to have shorter paths for the upper
 partials, those decaying more quickly. This could be addressed as in
 \cite{depalle1993tracking} where the signal is divided into overlapping sequences of
 frames and partial paths are connected between sequences.
 
 The proposed algorithm, while faster than algorithms based on the Viterbi
-algorithm, is still not fast. Assuming the same cost function
-$\mathcal{D}_{\text{pr.}}$ as in Section~\ref{sec:mq_lp_compare_chirp} it would
-be more efficient to consider narrow bands over which to search for paths when
-analysing signals with little frequency modulation. However, as we will see in
-Chapter~\ref{chap:amfmsep}, with different cost functions, the algorithm is
-useful for solving general $L$ shortest paths problems outside of partial
-tracking. 
+algorithm, is still not fast. In many situations where computational resources are
+limited, a McAulay-Quatieri method search over many sets of small $K$ works
+sufficiently well. However in high amounts of noise the algorithm proposed here
+is robust and of tractable complexity.
 
-\section{ACKNOWLEDGMENT}
+%\section{ACKNOWLEDGMENT}
 
 % -------------------------------------------------------------------------
 % Either list references using the bibliography style file IEEEtran.bst

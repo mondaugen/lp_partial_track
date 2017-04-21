@@ -1,5 +1,6 @@
 # Try doubling up some points in the middle to see if this makes enough
 # room for all the paths
+# compare with MQ algorithm
 import matplotlib.pyplot as plt
 import numpy as np
 import bestpathslp as bplp
@@ -30,6 +31,9 @@ a=bplp.estimate_ddm_decomp(x,
 # Number of paths L
 L=6
 
+# make colours
+cmap=plt.get_cmap('magma')
+
 # Boundaries on frequencies to consider
 f_min=250.
 f_max=2250
@@ -43,7 +47,7 @@ a_flt=[]
 for a_ in a:
     a_flt.append(filter(_dp_filt,a_))
 
-fig,ax1=plt.subplots(1,1)
+fig,(ax1,ax2)=plt.subplots(1,2)
 h=0
 for a_ in a_flt:
     for a__ in a_:
@@ -52,23 +56,10 @@ for a_ in a_flt:
         t0_=h/H#float(Fs)
         t1_=(h+H)/H#float(Fs)
         ax1.plot([t0_,t1_],[f0_,f1_],c='LightGrey')
+        ax2.plot([t0_,t1_],[f0_,f1_],c='LightGrey')
     h+=H
 
-# frames in which to double the points
-i_double=range(22,34)
-
-# double the points to have overlapping paths
-for i in i_double:
-    atlen=len(a_flt[i])
-    for j in xrange(atlen):
-        a_flt[i].append(a_flt[i][j].copy())
-
-ndp=sum([len(x) for x in a_flt])
-print 'number of data points %d' % (ndp,)
-print 'average number per frame %d' % (ndp/len(a_flt),)
-print 'number of frames %d' % (len(a_flt),)
-
-# Do partial tracking
+# Do partial tracking (LP)
 # reduce lists into one big list
 i_vals=reduce(lambda x,y : x+y,a_flt)
 # produce indices for each frame
@@ -86,18 +77,67 @@ for a_ in a_flt:
     del i_frames_[:len(a_)]
 
 def dfunc(a,b):
-#    f0=np.imag(a[1])/(2.*np.pi)*Fs
-#    f1_pr=f0+(np.imag(a[1])+2.*np.imag(a[2])*H)/(2.*np.pi)*Fs
-#    f1=np.imag(b[1])/(2.*np.pi)*Fs
-#    return abs(f1_pr - f1) + np.random.uniform()*1e-3
     return (abs((np.imag(a[1])+2.*np.imag(a[2])*H)
             -np.imag(b[1])) + abs(np.imag(a[2]) 
-                - np.imag(b[2]))*10000. + np.random.uniform()*1e-5)
+                - np.imag(b[2]))*100. + np.random.uniform()*1e-5)
+
+# do MQ algorithm
+# only do sets of K frames or else algorithm intractable
+
+K=3
+for k in xrange(0,len(i_frames),K-1):
+    (sl,D_)=bplp.get_mq_sol(i_frames[k:k+K],
+                            i_vals,
+                            dfunc,
+                            float('inf'),
+                            L)
+    pths_=[[(i,j) for i,j in zip(sl_[:-1],sl_[1:])] for sl_ in sl]
+    for i,pth in enumerate(pths_):
+        clr=cmap(float(i+1)/(L+1))
+        for pr in pth:
+            j,k=pr
+            f0_=np.imag(i_vals[j][1])/(2.*np.pi)*Fs
+            f1_=np.imag(i_vals[k][1])/(2.*np.pi)*Fs
+            t0_=i_times[j]/H#float(Fs)
+            t1_=i_times[k]/H#float(Fs)
+            ax2.plot([t0_,t1_],[f0_,f1_],c=clr,lw=2.)
+
+# Do partial tracking (LP)
+# reduce lists into one big list
+i_vals=reduce(lambda x,y : x+y,a_flt)
+# produce indices for each frame
+# start with all indices
+i_frames_=range(len(i_vals))
+i_frames=[]
+# times at which corresponding points happen
+i_times=[]
+h=0
+
+for a_ in a_flt:
+    i_frames.append(i_frames_[:len(a_)])
+    i_times += [h for _ in xrange(len(a_))]
+    h+=H
+    del i_frames_[:len(a_)]
+
+# frames in which to double the points
+i_double=range(22,34)
+
+# double the points to have overlapping paths
+for i in i_double:
+    atlen=len(a_flt[i])
+    for j in xrange(atlen):
+        a_flt[i].append(a_flt[i][j].copy())
+
+ndp=sum([len(x) for x in a_flt])
+print 'number of data points %d' % (ndp,)
+print 'average number per frame %d' % (ndp/len(a_flt),)
+print 'number of frames %d' % (len(a_flt),)
+
 
 (c,G,h,A,b,M,i_pairs,i_costs)=bplp.get_lp_mats(i_frames,
                                                i_vals,
                                                dfunc,
-                                               0.2,
+                                               0.1,
                                                L)
 print 'max cost %f' % (max(i_costs),)
 print 'min cost %f' % (min(i_costs),)
@@ -112,9 +152,6 @@ sol=cvxopt.solvers.lp(c_,G_,h_,A=A_,b=b_)
 
 (pths,i_pths)=bplp.extract_paths(sol['x'],i_pairs)
 
-# make colours
-cmap=plt.get_cmap('magma')
-
 for i,pth,i_pth in zip(xrange(len(pths)),pths,i_pths):
     clr=cmap(float(i+1)/(L+1))
     for pr in pth:
@@ -124,16 +161,6 @@ for i,pth,i_pth in zip(xrange(len(pths)),pths,i_pths):
         t0_=i_times[j]/H#float(Fs)
         t1_=i_times[k]/H#float(Fs)
         ax1.plot([t0_,t1_],[f0_,f1_],c=clr,lw=2.)
-
-#for x_pt in zip(sol['x'],i_pairs):
-#    x,pt = x_pt
-#    i,j=pt
-#    if x > 0.5:
-#        f0_=np.imag(i_vals[i][1])/(2.*np.pi)*Fs
-#        f1_=np.imag(i_vals[j][1])/(2.*np.pi)*Fs
-#        t0_=i_times[i]/H#float(Fs)
-#        t1_=i_times[j]/H#float(Fs)
-#        ax1.plot([t0_,t1_],[f0_,f1_],c='r')
 
 if (show_plot):
     plt.show()
