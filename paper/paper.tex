@@ -434,13 +434,13 @@ $\BS{C}$.
 \section{Partial paths on an example signal\label{sec:mq_lp_compare_chirp}}
 
 We compare the greedy and LP based methods for peak matching on a synthetic
-signal. The signal is composed of $Q=6$ chirps of constant amplitude, the $q$th
+signal. The signal is composed of $Q=3$ chirps of constant amplitude, the $q$th
 chirp $s$ at sample $n$ described by the equation
 \[
     s_{q}(n) = \exp(j(\phi_{q} + \omega_{q}n +
     \frac{1}{2} \psi_{q} n^{2}))
 \]
-The parameters for the 6 chirps are presented in
+The parameters for the $Q$ chirps are presented in
 Table~\ref{tab:ptrackexamplechirpparams}.
 
 \begin{table}[!b]
@@ -455,62 +455,36 @@ Table~\ref{tab:ptrackexamplechirpparams}.
     \end{center}
 \end{table}
 
-Two 1 second long signals are synthesized at a sampling rate of 16000 Hz, the
-first with chirps 0--2, the second with chirps 3--5. We add
+A 1 second long signal is synthesized at a sampling rate of 16000 Hz, the
+chirps ramping from their initial to final frequency in that time. We add
 Gaussian distributed white noise at several SNRs to evaluate the technique in the
 presence of noise.
 
-%\begin{figure}[!t]
-%    %\centering
-%    \centering
-%    \includegraphics[width=\figwidthscale\textwidth]{plots/mq_lp_compare_chirp_20.eps}
-%    \CaptionWithTitle{%
-%        \input{plots/mq_lp_compare_chirp_20.txt}%
-%    }{ Line-segments representing the frequency and frequency-slope at local
-%        spectrogram maxima. In the bottom two plots the line segments not deemed
-%        by the respective algorithms as belonging to a partial path are
-%        discarded, revealing the estimated partial trajectories. See
-%        Table~\ref{tab:ptrackexamplechirpparams} for the chirp parameters.
-%    \label{plot:mq_lp_compare_chirp_20}}
-%\end{figure}
-%\begin{figure}[!t]
-%    %\centering
-%    \centering
-%    \includegraphics[width=\figwidthscale\textwidth]{plots/mq_lp_compare_chirp_15.eps}
-%    \CaptionWithTitle{%
-%        \input{plots/mq_lp_compare_chirp_15.txt}%
-%    }{ Line-segments representing the frequency and frequency-slope at local
-%        spectrogram maxima. In the bottom two plots the line segments not deemed
-%        by the respective algorithms as belonging to a partial path are
-%        discarded, revealing the estimated partial trajectories. See
-%        Table~\ref{tab:ptrackexamplechirpparams} for the chirp parameters.
-%    \label{plot:mq_lp_compare_chirp_15}}
-%\end{figure}
-\begin{figure}[!t]
+\begin{figure*}
     %\centering
     \centering
-    \centerline{\includegraphics[width=\figwidthscale\textwidth]{plots/mq_lp_compare_chirp_10.eps}}
-    \CaptionWithTitle{%
-        \input{plots/mq_lp_compare_chirp_10.txt}%
-    }{ Line-segments representing the frequency and frequency-slope at local
-        spectrogram maxima. In the bottom two plots the line segments not deemed
-        by the respective algorithms as belonging to a partial path are
-        discarded, revealing the estimated partial trajectories. See
-        Table~\ref{tab:ptrackexamplechirpparams} for the chirp parameters.
-    \label{plot:mq_lp_compare_chirp_10}}
-\end{figure}
+    \centerline{\includegraphics[width=0.75\textwidth]{plots/mq_lp_compare_chirps.eps}}
+    { Line-segments representing the frequency and frequency-slope at local
+        spectrogram maxima. The coloured segments correspond to connected paths
+        returned by the search algorithms. Plots 1--3.a. show the atomic
+        decomposition of the signal before partial tracking for SNRs of 0, -6
+        and -12 dB, respectively. Plots 1--3.b. show the partial paths
+        discovered by the LP method and plots 1--3.c. show the paths discovered
+        by the McAulay-Quatieri method. 
+        See Table~\ref{tab:ptrackexamplechirpparams} for the chirp parameters.
+    \label{plot:mq_lp_compare_chirps}}
+\end{figure*}
 
-A spectrogram of each signal is computed with an analysis window length of 1024
-samples and a hop-size $H$ of 256 samples. Local maxima are searched in 150 Hz
-wide bands spaced 75 Hz apart. A local maximum is only accepted if its amplitude
-is greater than -20 dB. The bin corresponding to each local maximum and its two
+A spectrogram of each signal is computed with an analysis window length of 2048
+samples and a hop-size $H$ of 512 samples. Local maxima are searched in 100 Hz
+wide bands spaced 50 Hz apart. The bin corresponding to each local maximum and its two
 surrounding bins are used by the Distribution Derivative Method
-(DDM) to estimate the
+(DDM) \cite{betser2009sinusoidal} to estimate the
 local chirp parameters, the $i$th set of parameters in frame $k$ denoted
 $\theta_{i}^{k} = \left\{ \phi_{i}^{k} , \omega_{i}^{k} , \psi_{i}^{k}
 \right\}$ (the atoms used by the DDM are generated from 4-term continuous
-Nuttall windows). The results of the analyses of both signals are lumped together and
-it is on this lumped data that we perform partial tracking.
+Nuttall windows \cite{nuttall1981some}). Partial tracking is performed on the
+resulting atomic decomposition.
 
 We search for partial tracks using both the greedy and LP strategies. Both
 algorithms use the distance metric $\mathcal{D}_{\text{pr.}}$ between two parameters sets:
@@ -521,18 +495,25 @@ algorithms use the distance metric $\mathcal{D}_{\text{pr.}}$ between two parame
 \]
 which is the error in predicting $j$th frequency in frame $k+1$ from the $i$th
 parameters in frame $k$. For the greedy method, the search for partial paths is
-restricted to one frame ahead like in \cite{mcaulay1986speech}, otherwise the
+restricted to two frames ahead, i.e., paths of length $K_{\text{MQ}}=3$ are sought, otherwise the
 computation becomes intractable. For the LP
-method, to keep the computation time reasonable, we search over 6 frames for 6
-best paths (the number of paths does not affect the computation time).
-To maintain connected paths, the search on the next frames uses the end nodes of
-the last search as starting points. For both methods, the search is restricted
-to nodes between frequencies 250 to 2250 Hz.
+method the search is carried out over all frames ($K_{\text{LP}}=28$). %TODO: Is it?
+The cost thresholding values are ${\Delta_{\text{MQ}} = \Delta_{\text{LP}} =
+0.1}$. For both methods, the search is restricted
+to nodes between frequencies 250 to 2000 Hz.
 
-Figure~\ref{plot:mq_lp_compare_chirp_10}
-shows discovered partial trajectories for signals with a SNR of 10
-dB. It is seen that while the greedy method performs poorly
-at a SNR of 10dB, the LP method still gives plausible partial trajectories.
+Figure~\ref{plot:mq_lp_compare_chirps}
+shows discovered partial trajectories for signals at various SNRs. It is seen
+that while the greedy method starts performing poorly at an SNR of -6db, the LP method
+still gives plausible partial trajectories. The LP method returns paths spanning
+all $K$ frames, due to the constraints. The McAulay-Quatieri method in general does not,
+but longer paths can be formed in a straightforward way after the initial short path
+search step \cite{mcaulay1986speech}.
+
+It is interesting to note that the paths are found by only considering the
+prediction error of the initial frequency of the atom. Other cost functions can
+be chosen depending on the nature of the signal: reasonable cost functions here
+might be similarity of the atoms's energies or frequency slopes.
 
 \section{Conclusion}
 
@@ -543,21 +524,21 @@ of the $L$ paths, using a linear programming approach. It was shown on synthetic
 signals that the new approach finds plausible paths in lattices with a
 large number of spurious nodes.
 
-There are problems with the proposed approach. Perhaps ``jagged'' paths should be removed using regularization.
-There are also situations where it is undesirable to have paths extend
+There are problems with the proposed approach. 
+There are situations where it is undesirable to have paths extend
 throughout the entire lattice. Acoustic signals produced by striking media, such
 as strings or bars, exhibit a spectrum where the upper partials decay more
-quickly than the lower ones --- it
-would be desirable in these situations to have shorter paths for the upper
-partials, those decaying more quickly. This could be addressed as in
+quickly than the lower ones; it
+would be desirable in these situations to have shorter paths for these
+partials. This could be addressed as in
 \cite{depalle1993tracking} where the signal is divided into overlapping sequences of
 frames and partial paths are connected between sequences.
 
 The proposed algorithm, while faster than algorithms based on the Viterbi
-algorithm, is still not fast. In many situations where computational resources are
+algorithm \cite{wolf1989finding}, is still not fast. In many situations where computational resources are
 limited, a McAulay-Quatieri method search over many sets of small $K$ works
 sufficiently well. However in high amounts of noise the algorithm proposed here
-is robust and of tractable complexity.
+is robust while still of tractable complexity.
 
 %\section{ACKNOWLEDGMENT}
 
