@@ -91,15 +91,18 @@
     A new approach to the tracking of sinusoidal chirps using linear programming
     is proposed. It is demonstrated that the classical algorithm of
     \cite{mcaulay1986speech} is greedy and exhibits exponential complexity for
-    long searches. A linear programming (LP) formulation to find the best $L$ paths
-    in a lattice is described and its complexity is analysed. Finally it is
-    demonstrated that the new LP formulation outperforms the classical algorithm
-    in the tracking of sinusoidal chirps in high levels of noise --- both in
-    computational complexity and robustness.
+    long searches, while approaches based on the Viterbi algorithm exhibit
+    factorial complexity \cite{depalle1993tracking} \cite{wolf1989finding}. A
+    linear programming (LP) formulation to find the best $L$ paths in a lattice
+    is described and its complexity is shown to be less than previous
+    approaches. Finally it is demonstrated that the new LP formulation
+    outperforms the classical algorithm in the tracking of sinusoidal chirps in
+    high levels of noise.
 \end{abstract}
 
 \begin{keywords}
-partial tracking, linear programming, optimization, additive synthesis
+partial tracking, linear programming, optimization, additive synthesis, atomic
+decomposition, regularized approximation
 \end{keywords}
 
 \section{Introduction}
@@ -124,7 +127,7 @@ atom proximity evaluations.
 
 The latter techniques seeking globally optimal sets of paths incur great
 computational cost due to the large number of possible solutions. For this reason, in
-this paper we propose a linear programming \textit{relaxation}-formulation of
+this paper we propose a linear programming \textit{relaxation} formulation of
 the optimal path-set problem based on
 an algorithm for the tracking of multiple objects in video
 \cite{jiang2007linear}. It will be shown that this algorithm has favourable
@@ -160,19 +163,18 @@ the pair and $a_{1}$ the second.
 \section{A greedy method}
 
 In this section, we present the McAulay-Quatieri method of peak matching. It is
-conceptually simple and a set of short paths can be computed quickly, but
-it can be sensitive to spurious peaks and is optimal only in the sense that
-the set of paths computed contains the best path possible --- the quality of the
-other paths may be compromised under this criterion.
+conceptually simple and a set of short paths can be computed quickly, but it can
+be sensitive to spurious peaks and its complexity becomes unwieldly for long
+searches.
 
 In \cite[p.~748]{mcaulay1986speech} the peak matching algorithm is described in
 a number of steps; we summarize them here in a way comparable with the linear
 programming formulation to be presented shortly. In that paper, the parameters
-of each data point are the instantaneous amplitude, phase, and frequency but we
-will allow for arbitrary parameter sets $\theta$.  Define a distance function
-$\mathcal{D} \left( \theta_{i},\theta_{j} \right)$ that computes the
-similarity between $2$ sets of parameters. We will now consider a method that
-finds $L$ tuples of parameters that are closest.
+of each data point are the instantaneous amplitude, phase, and frequency but
+here we allow for arbitrary parameter sets $\theta$.  Define a distance function
+$\mathcal{D} \left( \theta_{i},\theta_{j} \right)$ that computes the similarity
+between $2$ sets of parameters. We will now consider a method that finds $L$
+tuples of parameters that are closest.
 
 We compute the cost tensor
 $
@@ -262,7 +264,7 @@ without changing the optimal solution $\BS{x}^{\ast}$.
 
 All nodes in $\BS{x}^{\ast}$ will have at most one incoming connection or
 otherwise no connections, a constraint that can be enforced through the
-following linear inequality. Define $\BS{A}^{\text{I}} \in
+following linear inequality: define $\BS{A}^{\text{I}} \in
 \mathbb{R}^{R_{\text{I}} \times P}$ with $R_{\text{I}} = \sum_{k=1}^{K-1}
 N_{k}$, the number of nodes in all the frames excluding the first. We sum all
 the connections into the node $r_{\text{I}} + N_{0}$ represented by the
@@ -293,7 +295,7 @@ and
     \BS{0} \leq \BS{A}^{\text{O}}\BS{x} \leq \BS{1}
 \end{equation}
 
-To ensure no breaks in the paths it is required that the number of incoming
+To forbid breaks in the paths it is required that the number of incoming
 connections into a given node equal the number of outgoing connections for the
 $R_{\text{B}} = \sum_{k=1}^{K-2} N_{k}$ nodes potentially having both incoming
 and outgoing connections.
@@ -362,7 +364,9 @@ subject to
         L
     \end{bmatrix}
 \end{equation}
-where $\BS{I}$ is the identity matrix.
+where $\BS{I}$ is the identity matrix. A proof that the solution
+$\boldsymbol{x}^{\ast}$ will have entries equal to either $0$ or $1$ can be
+found in \cite[p.~167]{parker1988discrete}.  
 
 \section{Memory complexity}
 
@@ -370,14 +374,15 @@ To simplify notation, in this section we assume there are $N$ nodes in each
 frame of the lattice.
 
 Although the matrices involved in (\ref{eq:lpprogfull}) are large, only a small
-fraction of their values are non-zero. As stated above, the number of variables in $\BS{x}$ is
-$P = (K-1)N^{2}$. Even though matrices $\BS{A}^{\text{I}}, \BS{A}^{\text{O}} \in
-\mathbb{R}^{N(K-1) \times P}$, each contains only $P$ non-zero
-entries.  $\BS{A}^{\text{B}} \in \mathbb{R}^{N(K-1) \times P}$ but contains only
-$2N^{2}(K-2)$ non-zero entries while $\BS{A}^{\text{C}}_{K-2} \in \mathbb{R}^{P}$
-contains merely $N$. The $\BS{x} \geq \BS{0}$ constraint requires a matrix
-with $P$ non-zero entries. The total memory complexity is therefore $4P +
-2N^{2}(K-2)$ floating-point numbers.
+fraction of their values are non-zero. Matrices $\BS{A}^{\text{I}},
+\BS{A}^{\text{O}} \in \mathbb{R}^{N(K-1) \times P}$, but each contains only $P$
+non-zero entries.  Furthermore $\BS{A}^{\text{B}} \in \mathbb{R}^{N(K-1) \times
+P}$ but contains only $2N^{2}(K-2)$ non-zero entries while
+$\BS{A}^{\text{C}}_{K-2} \in \mathbb{R}^{P}$ contains merely $N$. The $\BS{x}
+\geq \BS{0}$ constraint requires a matrix with $P$ non-zero entries. The total
+memory complexity including the entries in $\cLP$ and the right-hand-sides of
+(\ref{eq:lpprogfull}) is $2N^{2}(K-2) + 4P + 2N(K-1) + N + 1$ non-zero
+floating-point numbers.
 
 \section{Complexity}
 
@@ -499,23 +504,24 @@ resulting atomic decomposition.
 
 We search for partial tracks using both the greedy and LP strategies. Both
 algorithms use the distance metric $\mathcal{D}_{\text{pr.}}$ between two parameters sets:
-\[
+\begin{equation}
+    \label{eq:examplecostfun}
     \mathcal{D}_{\text{pr.}} \left( \theta_{i}^{k},
     \theta_{j}^{k+1} \right) = \left( \omega_{i}^{k} +
     \psi_{i}^{k} H - \omega_{j}^{k+1} \right)
-\]
+\end{equation}
 which is the error in predicting $j$th frequency in frame $k+1$ from the $i$th
 parameters in frame $k$. For the greedy method, the search for partial paths is
 restricted to two frames ahead, i.e., paths of length $K_{\text{MQ}}=3$ are sought, otherwise the
 computation becomes intractable. For the LP
-method the search is carried out over all frames ($K_{\text{LP}}=28$). %TODO: Is it?
+method the search is carried out over all frames ($K_{\text{LP}}=28$).
 The cost thresholding values are ${\Delta_{\text{MQ}} = \Delta_{\text{LP}} =
 0.1}$. For both methods, the search is restricted
 to nodes between frequencies 250 to 2000 Hz.
 
 Figure~\ref{plot:mq_lp_compare_chirps}
 shows discovered partial trajectories for signals at various SNRs. It is seen
-that while the greedy method starts performing poorly at an SNR of -6db, the LP method
+that while the greedy method starts performing poorly at an SNR of -6 dB, the LP method
 still gives plausible partial trajectories. The LP method returns paths spanning
 all $K$ frames, due to the constraints. The McAulay-Quatieri method in general does not,
 but longer paths can be formed in a straightforward way after the initial short path
@@ -528,11 +534,11 @@ might be similarity of the atoms's energies or frequency slopes.
 
 \section{Conclusion}
 
-In this paper we reformulated the classical greedy algorithm of McAulay and
+In this paper we reformulated the classical partial tracking technique of McAulay and
 Quatieri and showed that it can be seen as a greedy algorithm for finding the $L$
 shortest paths in a lattice. An algorithm was then proposed minimizing the sum
 of the $L$ paths, using a linear programming approach. The complexity of the new
-algorithm was shown to be generally less than the Viterbi-based algorithms and
+algorithm was shown to be generally less than the Viterbi-based methods and
 the McAulay-Quatieri algorithm for large $K$.
 It was shown on synthetic signals that the new approach finds plausible paths in
 lattices with a large number of spurious nodes.
@@ -547,13 +553,30 @@ partials. This could be addressed as in
 \cite{depalle1993tracking} where the signal is divided into overlapping sequences of
 frames and partial paths are connected between sequences.
 
+In its current form, the path search may choose undesirable paths if a
+convenient node is missing from the following frame. An extension could consider
+nodes some number of frames ahead.
+
 The proposed algorithm, while asymptotically faster than other partial tracking
-algorithms, is still not fast. In many situations where computational resources
+algorithms, is still not fast. In situations where computational resources
 are limited, a McAulay-Quatieri method search over many sets of small $K$ works
 sufficiently well. However in high amounts of noise the algorithm proposed here
 is robust while still of tractable complexity.
 
-%TODO: Improvements and extensions
+It may be possible to improve the performance of the algorithm by the use of
+different cost functions and regularization. The cost function
+(\ref{eq:examplecostfun}) could be extended to encourage similarity between
+frequency slopes or amplitude information. Each metric should be scaled
+according to its desired contribution to the cost.
+
+There may also be a way to extract individual paths through the use of auxiliary
+variables in (\ref{eq:lpprogfull}). If so, path specific costs such as overall
+smoothness or fit to a particular model could be incorporated. 
+
+In any case, it would be interesting to further investigate programming
+relaxations encouraging underlying discrete structures plausible for audio
+in the framework of regularized approximation. These structures are closer to
+ground-truth structures for speech (text) and music (the musical score).
 
 %\section{ACKNOWLEDGMENT}
 
