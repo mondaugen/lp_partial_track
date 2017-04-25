@@ -102,34 +102,53 @@
 partial tracking, linear programming, optimization, additive synthesis
 \end{keywords}
 
-\section{Partial Tracking\label{chap:partialtracking}}
+\section{Introduction}
 
-%In the previous paper, we saw how to estimate parameters of sinusoids with
-%polynomial phase. While theoretically applicable to signals of arbitrary length,
-%for reasons of flexibility and efficiency, we usually estimate the local
-%parameters of the signal under a low-order model and connect multiple
-%estimations to form a partial. We will call these local estimations ``analysis
-%points'' or ``parameter sets''.
+Atomic decompositions of audio allow for the discovery of meaningful underlying
+structures such as musical notes \cite{gribonval2003harmonic} or sparse
+representations \cite{plumbley2010sparse}. A classical structure sought in
+decompositions of speech and music signals is the sum-of-sinusoids model: windowed sinusoidal atoms in the
+decomposition of sufficient energy and in close proximity in both time and
+frequency are considered as \textit{connected}. The progressions of these
+connected atoms in time form paths or \textit{partial trajectories}.
 
-This paper presents an interpretation of the \textit{peak matching} procedure
-of McAulay and Quatieri \cite{mcaulay1986speech}, a classical approach to discovering partials. Our
-interpretation allows for the specification of an arbitrary cost function
-measuring the plausibility that a set of analysis points forms the path of a
-partial. With this path interpretation, we were able to design a technique that finds the
-optimal set of paths under a constraint on the number of paths. The paper 
-concludes with an example of partial tracking on a synthetic signal.
+Many authors have considered the partial tracking problem, beginning with
+\cite{mcaulay1986speech}. Their technique is improved upon
+in \cite{lagrange2003enhanced} with the use of linear prediction to improve the
+plausibility of partial tracks. Rather than seeking individual paths, in
+\cite{depalle1993tracking} the most plausible sequence of connections and
+detachments between atoms is determined via an extension of the Viterbi
+algorithm proposed in \cite{wolf1989finding}. Improvements to this technique are
+made in \cite{kereliuk2008improved} by incorporating the frequency slope into
+atom proximity evaluations.
 
-Typically the discrete time short-time Fourier transform (DTSTFT) is computed
-for a block of contiguous samples, called a \textit{frame} and these frames are
-computed every $H$ samples, $H$ being the \textit{hop-size}. We will denote the
-$N_{k}$ sets of parameters at local maxima in frame $k$ as $\theta_0^{k},
-\dotsc, \theta_{N_{k}-1}^{k}$ and the $N_{k+1}$ in frame $k+1$ as
-$\theta_0^{k+1}, \dotsc, \theta_{N_{k+1}-1}^{k+1}$ where $k$ and $k+1$ refer to
-adjacent frames. We are interested in paths that extend across $K$ frames where
-each path touches only one parameter set and each parameter set is either
-exclusive to a single path or is not on a path.
+The latter techniques seeking globally optimal sets of paths incur great
+computational cost due to the large number of possible solutions. For this reason, in
+this paper we propose a linear programming \textit{relaxation}-formulation of
+the optimal path-set problem based on
+an algorithm for the tracking of multiple objects in video
+\cite{jiang2007linear}. It will be shown that this algorithm has favourable
+asymptotic complexity and performs well on the tracking of chirps in high levels
+of noise.
 
 \subsection{Note on notation}
+
+The atomic decompositions used in this paper consider blocks of 
+of contiguous samples, called \textit{frames} and these frames are
+computed every $H$ samples, $H$ being the \textit{hop-size}. We will denote the
+$N_{k}$ sets of parameters for atoms found in the decomposition in frame $k$ as $\theta_0^{k},
+\dotsc, \theta_{N_{k}-1}^{k}$ and the $N_{k+1}$ in frame $k+1$ as
+$\theta_0^{k+1}, \dotsc, \theta_{N_{k+1}-1}^{k+1}$ where $k$ and $k+1$ refer to
+adjacent frames.
+
+The total number of nodes is $M = \sum_{k=0}^{K-1} N_{k}$. $\theta_{i}^{j}$ is the
+$i$th node of the $j$th frame, $\theta^{j}$ the set of all the nodes in the
+$j$th frame and $\theta_{m}$ the $m$th node out of all $M$ nodes ($0 \leq m <
+M$).
+
+We are interested in paths that extend across $K$ frames where
+each path touches only one parameter set and each parameter set is either
+exclusive to a single path or is not on a path.
 
 In this paper, indexing starts at 0. If we have a vector $\BS{x}$ then
 $\BS{x}_{i}$ is the $i$th row or column of that vector depending on the
@@ -137,19 +156,6 @@ orientation. The same notation is used for Cartesian products, e.g., if $\alpha$
 and $\beta$ are sets and $A =
 \alpha \times \beta$ then for the pair $a \in A$ $a_{0}$ is the first item in
 the pair and $a_{1}$ the second.
-
-The number of frames is denoted $K$, the number of nodes in the $k$th frame $N_k$ and
-the total number of nodes $M = \sum_{k=0}^{K-1} N_{k}$. $\theta_{i}^{j}$ is the
-$i$th node of the $j$th frame, $\theta^{j}$ the set of all the nodes in the
-$j$th frame and $\theta_{m}$ the $m$th node out of all $M$ nodes ($0 \leq m <
-M$).
-
-%In Section~\ref{sec:mqfmfromphase} we discussed how to determine reasonable
-%values for the coefficients of a cubic phase polynomial by using the frequency,
-%phase and time difference of two local maxima in the DTSTFT. In this section we
-%discuss possible ways of determining which local maxima are connected. This is
-%referred to as \textit{peak matching} \cite{mcaulay1986speech}
-%or \textit{partial tracking} \cite{smith1987parshl} \cite{depalle1993tracking}.
 
 \section{A greedy method}
 
@@ -159,13 +165,12 @@ it can be sensitive to spurious peaks and is optimal only in the sense that
 the set of paths computed contains the best path possible --- the quality of the
 other paths may be compromised under this criterion.
 
-In \cite[q.~748]{mcaulay1986speech} the peak matching algorithm is described in
+In \cite[p.~748]{mcaulay1986speech} the peak matching algorithm is described in
 a number of steps; we summarize them here in a way comparable with the linear
 programming formulation to be presented shortly. In that paper, the parameters
 of each data point are the instantaneous amplitude, phase, and frequency but we
 will allow for arbitrary parameter sets $\theta$.  Define a distance function
-$\mathcal{D}
-\left( \theta_{i},\theta_{j} \right)$ that computes the
+$\mathcal{D} \left( \theta_{i},\theta_{j} \right)$ that computes the
 similarity between $2$ sets of parameters. We will now consider a method that
 finds $L$ tuples of parameters that are closest.
 
@@ -179,8 +184,11 @@ $i_{0},\dotsc,i_{K-1}$
 corresponding to the shortest
 distance, then remove the $i_{0},\dotsc,i_{K-1}$th rows (lines of table entries)
 in the their respective dimensions from consideration
-and continue until $L$ tuples have been determined or the distances exceed some
-threshold $\Delta_{\text{MQ}}$. This is summarized in Algorithms~\ref{alg:mq_peak_match}
+and continue until $L$ tuples have been determined or a distance between a pair
+of nodes on the path
+exceeds some
+threshold $\Delta_{\text{MQ}}$. This is summarized in
+Algorithm~\ref{alg:mq_peak_match}.
 
 \begin{algorithm}
     \KwIn{the cost matrix $\BS{C}$}
@@ -190,7 +198,8 @@ threshold $\Delta_{\text{MQ}}$. This is summarized in Algorithms~\ref{alg:mq_pea
         $\D \Gamma_{l}=\argmin_{[0,\dotsc,M_{0}-1] \times
         \mathellipsis \times [0,\dotsc,M_{K-1}-1] \setminus \Gamma}
             \BS{C}$\;
-            \If{$ C_{\Gamma_{l}} > \Delta_{\text{MQ}}$}{
+            \If{$ \exists i,j \in \Gamma_{l} : 
+            \mathcal{D} \left( \theta_{i},\theta_{j} \right) > \Delta_{\text{MQ}}$}{
             \KwRet{$\Gamma$}
         }
         $\Gamma \leftarrow \Gamma \cup C_{\Gamma_{l}}$\;
@@ -209,7 +218,8 @@ costs.
 Furthermore, the algorithm does not scale well: assuming equal numbers of
 parameter sets in all frames, the search space grows exponentially with
 $K$. Nevertheless, the method is simple to implement, computationally negligible
-when $K$ is small, and works well with audio signals \cite{mcaulay1986speech}
+when $K$ is small, and works well with a variety of audio signals such as speech
+\cite{mcaulay1986speech} and music
 \cite{smith1987parshl}.
 
 \section{$L$ best paths through a lattice via linear programming (LP)}
@@ -218,10 +228,9 @@ In this section we show how to find L paths through a lattice of $K$ frames such
 that the sets of nodes on each path are disjoint. The $k$th frame of the lattice
 contains $N_{k}$ nodes for a total of $M = \sum_{k=0}^{K-1}N_{k}$ nodes.
 
-Whereas the limiting cost under which a path would be considered was the sum of
-the costs of all connections in the McAulay-Quatieri method, for the LP method
+Similar to the McAulay-Quatieri method 
 we define the cost $\Delta_{\text{LP}}$ as the limiting cost under which the
-connection between two nodes will be considered.
+connection between two nodes will be considered in the LP method.
 
 The solution vector $\BS{x}$ to the linear program shall indicate the presence of a
 connection between a pair of nodes by having an entry equal to $1$ and otherwise
@@ -460,19 +469,21 @@ chirps ramping from their initial to final frequency in that time. We add
 Gaussian distributed white noise at several SNRs to evaluate the technique in the
 presence of noise.
 
-\begin{figure*}
+\begin{figure*}[!t]
     %\centering
     \centering
     \centerline{\includegraphics[width=0.75\textwidth]{plots/mq_lp_compare_chirps.eps}}
-    { Line-segments representing the frequency and frequency-slope at local
-        spectrogram maxima. The coloured segments correspond to connected paths
-        returned by the search algorithms. Plots 1--3.a. show the atomic
-        decomposition of the signal before partial tracking for SNRs of 0, -6
-        and -12 dB, respectively. Plots 1--3.b. show the partial paths
-        discovered by the LP method and plots 1--3.c. show the paths discovered
-        by the McAulay-Quatieri method. 
-        See Table~\ref{tab:ptrackexamplechirpparams} for the chirp parameters.
-    \label{plot:mq_lp_compare_chirps}}
+    \caption{ Line-segments representing the frequency and frequency-slope at
+        local spectrogram maxima. The power of each atom is represented by
+        shades of grey: black atoms have the highest power and white the lowest.
+        The coloured segments correspond to connected paths returned by the
+        search algorithms. Plots 1--3.a. show the atomic decomposition of the
+        signal before partial tracking for SNRs of 0, -6 and -12 dB,
+        respectively.  Plots 1--3.b. show the partial paths discovered by the LP
+        method and plots 1--3.c. show the paths discovered by the
+        McAulay-Quatieri method.  See Table~\ref{tab:ptrackexamplechirpparams}
+        for the chirp parameters.  \label{plot:mq_lp_compare_chirps}
+    }
 \end{figure*}
 
 A spectrogram of each signal is computed with an analysis window length of 2048
@@ -482,8 +493,8 @@ surrounding bins are used by the Distribution Derivative Method
 (DDM) \cite{betser2009sinusoidal} to estimate the
 local chirp parameters, the $i$th set of parameters in frame $k$ denoted
 $\theta_{i}^{k} = \left\{ \phi_{i}^{k} , \omega_{i}^{k} , \psi_{i}^{k}
-\right\}$ (the atoms used by the DDM are generated from 4-term continuous
-Nuttall windows \cite{nuttall1981some}). Partial tracking is performed on the
+\right\}$ (the atoms used by the DDM are generated from 4-term
+once-differentiable Nuttall windows \cite{nuttall1981some}). Partial tracking is performed on the
 resulting atomic decomposition.
 
 We search for partial tracks using both the greedy and LP strategies. Both
@@ -520,11 +531,13 @@ might be similarity of the atoms's energies or frequency slopes.
 In this paper we reformulated the classical greedy algorithm of McAulay and
 Quatieri and showed that it can be seen as a greedy algorithm for finding the $L$
 shortest paths in a lattice. An algorithm was then proposed minimizing the sum
-of the $L$ paths, using a linear programming approach. It was shown on synthetic
-signals that the new approach finds plausible paths in lattices with a
-large number of spurious nodes.
+of the $L$ paths, using a linear programming approach. The complexity of the new
+algorithm was shown to be generally less than the Viterbi-based algorithms and
+the McAulay-Quatieri algorithm for large $K$.
+It was shown on synthetic signals that the new approach finds plausible paths in
+lattices with a large number of spurious nodes.
 
-There are problems with the proposed approach. 
+The proposed approach has some drawbacks.
 There are situations where it is undesirable to have paths extend
 throughout the entire lattice. Acoustic signals produced by striking media, such
 as strings or bars, exhibit a spectrum where the upper partials decay more
@@ -534,11 +547,13 @@ partials. This could be addressed as in
 \cite{depalle1993tracking} where the signal is divided into overlapping sequences of
 frames and partial paths are connected between sequences.
 
-The proposed algorithm, while faster than algorithms based on the Viterbi
-algorithm \cite{wolf1989finding}, is still not fast. In many situations where computational resources are
-limited, a McAulay-Quatieri method search over many sets of small $K$ works
+The proposed algorithm, while asymptotically faster than other partial tracking
+algorithms, is still not fast. In many situations where computational resources
+are limited, a McAulay-Quatieri method search over many sets of small $K$ works
 sufficiently well. However in high amounts of noise the algorithm proposed here
 is robust while still of tractable complexity.
+
+%TODO: Improvements and extensions
 
 %\section{ACKNOWLEDGMENT}
 
