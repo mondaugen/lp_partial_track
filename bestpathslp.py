@@ -278,7 +278,7 @@ def estimate_ddm_decomp(x,
     while ((h+M) <= N):
         #a0.append(
         a0=sm.ddm_p2_1_3_b(x[h:(h+M)],w,dw,
-            b_ddm,o_ddm,th_ddm,M_ddm,i_ddm,norm=True)
+            int(b_ddm),int(o_ddm),th_ddm,M_ddm,i_ddm,norm=True)
         #)
         h+=H
         #a.append(a0[-1])
