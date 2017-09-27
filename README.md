@@ -9,6 +9,8 @@ Numpy
 CVXOPT
 Matplotlib
 
+## Building
+
 To build the paper, run `./build_plot_and_paper.sh`
 
 Any questions? Contact me over github.
