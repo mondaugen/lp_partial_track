@@ -4,9 +4,9 @@ This is the repository for the unpublished paper "A linear programming approach
 to the tracking of partials"
 
 ## Requirements
-Python 2
-Numpy
-CVXOPT
+Python 2,
+Numpy,
+CVXOPT,
 Matplotlib
 
 ## Building
