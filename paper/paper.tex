@@ -47,6 +47,17 @@
 \newcommand{\cLP}{\boldsymbol{c}_{\rho}}
 \newcommand{\BS}[1]{\boldsymbol{#1}}
 
+\if\buildforarchivx1
+    % When building for archivx, we use the WASPAA style but remove the header
+    % so there is no trace of WASPAA proceedings in the paper
+    \rhead{}
+    \chead{}
+    \lhead{}
+    \lfoot{}
+    \rfoot{}
+    \cfoot{}
+\fi
+
 % Title.
 % --------------------
 \title{A linear programming approach to the tracking of partials}
